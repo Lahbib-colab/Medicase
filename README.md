@@ -13,3 +13,8 @@ Hébergement statique en HTTPS (GitHub Pages, Netlify, Cloudflare Pages…) : d�
 ## Régénérer le CSS avec le vrai Tailwind CLI (recommandé)
     ./tailwindcss -c tailwind.config.js -i input.css -o styles.css --minify
 Le `styles.css` fourni a été généré par un script équivalent (sous-ensemble des classes utilisées), faute d'accès réseau.
+
+## Profil du joueur
+Écran « Profil » (bouton en en-tête, ou clic sur la puce XP) : nom « Dr … », score XP, niveau, statistiques,
+badges et deux graphiques en toile d'araignée (compétences cliniques, spécialités).
+La progression est sauvegardée dans le navigateur (`localStorage`, clé `medcase_progress`) ; bouton de réinitialisation inclus.
