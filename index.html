@@ -62,6 +62,7 @@
                 </div>
 
                 <button onclick="openProfile()" class="flex items-center gap-1.5 p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs font-semibold" title="Mon profil"><i class="fa-solid fa-user-doctor"></i><span class="hidden sm:inline">Profil</span></button>
+                <button id="sound-btn" onclick="toggleSound()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="Son du moniteur cardiaque" aria-label="Activer ou couper le son du moniteur" aria-pressed="true"><i id="sound-icon" class="fa-solid fa-volume-high"></i></button>
                 <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
                     <i id="theme-icon" class="fa-solid fa-moon"></i>
                 </button>
@@ -89,7 +90,7 @@
                 </div>
                 <div class="max-w-2xl relative z-10 space-y-3">
                     <span class="bg-sky-500/30 text-sky-100 text-xs font-semibold px-3 py-1 rounded-full border border-sky-300/30 uppercase tracking-wider">Module de Simulation Médicale</span>
-                    <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Catalogue des Urgences Vitales</h2>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Catalogue des Cas Cliniques</h2>
                     <p id="welcome-text" class="text-sky-100 text-sm sm:text-base leading-relaxed"></p>
                 </div>
             </div>
@@ -199,6 +200,16 @@
                     </div>
                     <div class="text-xl sm:text-2xl font-bold text-purple-300 mt-1"><span id="vital-gcs">15/15</span></div>
                 </div>
+            </div>
+
+            <!-- Moniteur en direct -->
+            <div id="monitor-panel" class="bg-black rounded-xl border border-slate-800 p-2 space-y-1" aria-label="Moniteur : ECG et SpO2 en direct">
+                <div class="relative"><canvas id="mon-ecg" class="w-full"></canvas>
+                    <span class="absolute left-2 top-1 text-[10px] font-mono text-emerald-400">II</span>
+                    <span id="mon-rate" class="absolute right-2 bottom-1 text-[10px] font-mono text-emerald-400"></span>
+                    <span id="mon-alarm" class="hidden absolute right-2 top-1 text-xs font-bold font-mono text-red-500 animate-pulse"></span></div>
+                <div class="relative"><canvas id="mon-pleth" class="w-full"></canvas>
+                    <span class="absolute left-2 top-1 text-[10px] font-mono text-cyan-400">SpO2</span></div>
             </div>
 
             <!-- Tabbed Navigation -->
@@ -399,7 +410,7 @@
                 </div>
             </div>
 
-            <div id="profile-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+            <div id="profile-stats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"></div>
 
             <div id="radar-empty" class="hidden bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-700 rounded-xl p-4 text-sm text-sky-800 dark:text-sky-200">
                 <i class="fa-solid fa-circle-info mr-1"></i> Terminez un premier cas pour remplir vos graphiques de compétences.
@@ -431,7 +442,19 @@
         </section>
     </main>
 
+    <div id="death-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="transition:background .6s" role="alertdialog" aria-live="assertive" aria-labelledby="death-title">
+        <div id="death-card" class="hidden w-full max-w-md bg-slate-950 border border-red-700 rounded-2xl p-6 text-center space-y-4 shadow-2xl">
+            <div class="h-14 bg-black rounded border border-slate-800 flex items-center px-2">
+                <svg viewBox="0 0 400 40" class="w-full h-10" preserveAspectRatio="none"><path d="M0 20 H400" stroke="#ef4444" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"/></svg>
+            </div>
+            <h3 id="death-title" class="text-xl font-extrabold text-red-400">Le patient est décédé</h3>
+            <p id="death-time" class="text-xs font-mono text-slate-400"></p>
+            <p id="death-text" class="text-sm text-slate-300"></p>
+            <button onclick="finishAfterDeath()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl transition"><i class="fa-solid fa-clipboard-list mr-2"></i> Voir le débriefing</button>
+        </div>
+    </div>
     <div id="toast" class="hidden"></div>
+
 
     <script>
         const CLINICAL_CASES = [
@@ -3209,6 +3232,547 @@
               ["Compression bi-digitale suivie d'un tamponnement efficace.", "Contrôle de la tension et de l'anticoagulation.", "ORL : tamponnement postérieur, embolisation ou ligature artérielle si échec."])
         );
 
+        /* ---------------- LOT E : médecine générale (23 cas) ---------------- */
+        EXTRA_CASES.push(
+            K("angine_strepto", "Angine Érythémateuse de l'Adulte", "Médecine générale", "Facile", ["Camille Lopez", 24, "Femme"],
+              "Mal de gorge intense depuis 2 jours, fièvre à 38,6 °C, douleur à la déglutition, sans toux.",
+              [92, "118/72", 99, 16, 38.6, "15/15"], 240,
+              "Calculez le score de Mac Isaac : si ≥ 2, faites un test de diagnostic rapide (TDR). Antibiotique seulement si le TDR est positif.",
+              [["Y a-t-il une toux ou le nez qui coule ?", "Aucune toux, pas de rhinorrhée, ganglions douloureux sous la mâchoire."], ["Antécédents et allergies ?", "Aucune allergie, pas de rhumatisme articulaire aigu, aucun traitement."]],
+              [["Examen de la gorge", "Amygdales rouges et augmentées de volume avec exsudat blanchâtre, voile du palais symétrique, pas de trismus."], ["Examen cervical", "Adénopathies sous-angulo-maxillaires douloureuses, pas de raideur de nuque."]],
+              [["mcisaac", "Score de Mac Isaac", "1 min", 1, "Score à 4 (âge < 45 ans, fièvre, absence de toux, adénopathies, exsudat) : TDR indiqué."],
+               ["tdr", "TDR du streptocoque du groupe A", "5 min", 1, "TDR positif au streptocoque du groupe A."],
+               ["nfs", "NFS, CRP", "60 min", 2, "Non indiquées : ne modifient pas la décision."],
+               ["sinus", "Radiographie des sinus", "20 min", 2, "Sans intérêt devant une angine."]],
+              [["M", "amox", "Amoxicilline 1 g x2/j pendant 6 jours"],
+               ["m", "paracetamol", "Paracétamol pour la douleur et la fièvre", { temp: -0.5 }],
+               ["g", "conseils", "Conseils : hydratation, repas froids ou tièdes, reprise des activités après 24 h d'antibiotique"],
+               ["XM", "atb_sans_tdr", "Antibiotique sans test de confirmation", "Surprescription : la majorité des angines sont virales.", {}],
+               ["XM", "corticoides", "Corticoïdes oraux", "Pas d'indication systématique dans l'angine.", {}],
+               ["XM", "macrolide", "Macrolide en première intention", "À réserver à l'allergie aux β-lactamines : résistances fréquentes.", {}]],
+              ["Angine à streptocoque du groupe A", "Angine virale", "Mononucléose infectieuse"], "home",
+              ["Score de Mac Isaac élevé puis TDR positif avant tout antibiotique.", "Amoxicilline 6 jours : traitement de référence.", "Retour à domicile avec ordonnance et conseils de surveillance."]),
+
+            K("cystite_simple", "Cystite Aiguë Simple", "Médecine générale", "Facile", ["Léa Fontaine", 28, "Femme"],
+              "Brûlures mictionnelles, envies fréquentes et urines troubles depuis 24 heures, sans fièvre.",
+              [80, "112/70", 99, 14, 37.0, "15/15"], 210,
+              "Cystite simple : bandelette urinaire (leucocytes, nitrites). Pas d'ECBU systématique ; fosfomycine-trométamol 3 g en dose unique en première intention.",
+              [["Antécédents ?", "Une cystite il y a 1 an. Pas de grossesse, pas de diabète, pas de malformation connue."], ["Fièvre ou douleur lombaire ?", "Aucune fièvre, aucune douleur des flancs."]],
+              [["Examen abdominal et lombaire", "Sensibilité sus-pubienne, fosses lombaires indolores, apyrétique."], ["Recherche de signes de gravité", "Pas de vomissement, pas de frissons, pas de saignement vaginal."]],
+              [["bandelette", "Bandelette urinaire", "2 min", 1, "Leucocytes positifs, nitrites positifs, sang présent : cystite simple très probable."],
+               ["gravite", "Recherche de facteurs de risque de complication", "1 min", 1, "Aucun : patiente jeune, non enceinte, sans comorbidité."],
+               ["ecbu", "ECBU systématique", "48 h", 2, "Non nécessaire dans la cystite simple : résultat tardif sans conséquence."],
+               ["echo", "Échographie rénale", "30 min", 2, "Non indiquée en l'absence de signe de gravité."]],
+              [["M", "fosfo", "Fosfomycine-trométamol 3 g en dose unique"],
+               ["m", "hydratation", "Conseils : boissons abondantes, mictions régulières"],
+               ["g", "ains", "Éventuel antalgique (paracétamol)"],
+               ["XM", "fluoroquinolone", "Fluoroquinolone en première intention", "Effets indésirables graves et résistances : à réserver aux infections compliquées.", {}],
+               ["XM", "traitement_long", "Antibiotique pendant 10 jours", "Durée excessive : la dose unique est suffisante.", {}]],
+              ["Cystite aiguë simple", "Pyélonéphrite aiguë", "Infection sexuellement transmissible"], "home",
+              ["Symptômes typiques, bandelette positive, aucun facteur de risque.", "Traitement court sans ECBU systématique.", "Retour à domicile avec conseils et consigne de revenir si fièvre ou douleur lombaire."]),
+
+            K("lombalgie_commune", "Lombalgie Aiguë Commune", "Médecine générale", "Facile", ["Pascal Renaud", 42, "Homme"],
+              "Douleur lombaire basse apparue après un effort de soulèvement, sans irradiation, soulagée par la position allongée.",
+              [76, "125/80", 99, 14, 36.8, "15/15"], 240,
+              "Éliminer les signes de gravité (fièvre, déficit moteur, rétention urinaire, traumatisme), pas d'imagerie, antalgiques, rester actif.",
+              [["Début et contexte ?", "Brutal hier en déplaçant un meuble. Aucun traumatisme, aucune fièvre."], ["Troubles neurologiques ou urinaires ?", "Aucun trouble urinaire, aucun engourdissement, aucune perte de force."]],
+              [["Examen du rachis", "Contracture paravertébrale lombaire, mobilité limitée par la douleur, pas de déformation."], ["Examen neurologique des membres inférieurs", "Force, sensibilité et réflexes normaux, Lasègue négatif."]],
+              [["gravite", "Recherche de signes de gravité (drapeaux rouges)", "2 min", 1, "Aucun signe d'alerte : pas de fièvre, pas de déficit, pas de traumatisme, pas de cancer connu."],
+               ["motricite", "Évaluation neurologique détaillée", "3 min", 1, "Examen normal : pas de syndrome de la queue de cheval."],
+               ["irm", "IRM lombaire", "60 min", 2, "Non indiquée : peu utile et source de découvertes fortuites sans lien."],
+               ["scanner", "Scanner lombaire", "30 min", 2, "Non indiqué : irradiation sans bénéfice."]],
+              [["M", "antalgiques", "Antalgique de palier 1 (paracétamol) ± AINS en cure courte"],
+               ["G", "activite", "Maintien de l'activité, reprise progressive du travail"],
+               ["g", "chaleur", "Chaleur locale et conseils posturaux"],
+               ["XG", "repos", "Repos strict au lit prolongé", "Retarde la guérison et favorise la chronicisation.", {}],
+               ["XM", "opioides", "Opioïdes forts", "Pas d'indication dans la lombalgie commune : risques supérieurs aux bénéfices.", {}],
+               ["XM", "cortico", "Corticoïdes systémiques", "Pas d'efficacité démontrée dans la lombalgie commune.", {}]],
+              ["Lombalgie aiguë commune (mécanique)", "Lombosciatique compliquée", "Spondylodiscite"], "home",
+              ["Absence de signes de gravité : lombalgie commune.", "Pas d'imagerie, antalgiques et maintien de l'activité.", "Retour à domicile, réévaluation à 4 à 6 semaines si persistance."]),
+
+            K("gea_adulte", "Gastro-entérite Aiguë de l'Adulte", "Médecine générale", "Facile", ["Karim Benali", 34, "Homme"],
+              "Diarrhée liquide et vomissements depuis 24 heures, crampes abdominales, fièvre légère.",
+              [88, "118/72", 99, 15, 37.8, "15/15"], 210,
+              "Réhydratation orale, pas d'antibiotique ni d'examen systématique. Rechercher les signes de gravité (déshydratation, sang, fièvre élevée, terrain fragile).",
+              [["Contexte ?", "Repas collectif il y a 2 jours, plusieurs convives malades. Pas de voyage récent."], ["Selles ?", "Liquides, 8 fois par jour, sans sang ni glaires."]],
+              [["Examen général", "Muqueuses légèrement sèches, pli cutané normal, pas de signe de choc."], ["Examen abdominal", "Abdomen souple, douleur diffuse modérée, pas de défense."]],
+              [["gravite", "Recherche de signes de gravité", "2 min", 1, "Pas de sang dans les selles, pas de déshydratation sévère, pas de fièvre > 38,5 °C, pas de terrain fragile."],
+               ["coproculture", "Coproculture systématique", "72 h", 2, "Non indiquée en l'absence de signe de gravité."],
+               ["bio", "Ionogramme sanguin", "24 h", 2, "Non nécessaire en l'absence de déshydratation sévère."]],
+              [["M", "sro", "Solution de réhydratation orale en petites quantités fractionnées"],
+               ["g", "alimentation", "Reprise alimentaire progressive"],
+               ["m", "racecadotril", "Racécadotril en complément", {}],
+               ["XM", "atb", "Antibiotique systématique", "Aucun bénéfice dans la gastro-entérite virale ou la toxi-infection simple.", {}],
+               ["XM", "loperamide_fievre", "Lopéramide malgré fièvre et douleurs", "À éviter en cas de fièvre ou de diarrhée glairo-sanglante.", {}]],
+              ["Gastro-entérite aiguë virale ou toxi-infection alimentaire simple", "Appendicite aiguë", "Maladie inflammatoire de l'intestin"], "home",
+              ["Aucun signe de gravité : traitement symptomatique.", "Réhydratation orale, pas d'antibiotique.", "Retour à domicile avec consignes sur les signes d'alerte."]),
+
+            K("otite_enfant", "Otite Moyenne Aiguë de l'Enfant", "Médecine générale", "Facile", ["Hugo Perrin", 3, "Enfant (3 ans)"],
+              "Fièvre à 38,8 °C et pleurs avec main portée à l'oreille depuis la nuit, après un rhume.",
+              [118, "95/60", 98, 26, 38.8, "15/15"], 240,
+              "Otoscopie obligatoire. Otite purulente chez l'enfant de plus de 2 ans avec symptômes marqués : amoxicilline 80-90 mg/kg/j pendant 5 jours ; paracétamol.",
+              [["Début ?", "Rhume depuis 4 jours, puis douleur à l'oreille cette nuit avec fièvre."], ["Antécédents ?", "Une seule otite l'an dernier, vaccins à jour, pas d'allergie."]],
+              [["Examen général", "Enfant irritable mais interactif, pas de raideur de nuque, tonique."], ["Examen mastoïdien", "Pas de tuméfaction rétro-auriculaire, pavillon non décollé."]],
+              [["otoscopie", "Otoscopie bilatérale", "3 min", 1, "Tympan droit rouge, bombé, opaque avec disparition des reliefs : otite moyenne aiguë purulente. Tympan gauche normal."],
+               ["gravite", "Recherche de signes de gravité ou de complication", "2 min", 1, "Aucun signe de mastoïdite, de méningite ou de paralysie faciale."],
+               ["audio", "Audiométrie", "30 min", 2, "Non indiquée à la phase aiguë."],
+               ["scanner", "Scanner des rochers", "30 min", 2, "Non indiqué sans complication."]],
+              [["M", "amox", "Amoxicilline 80-90 mg/kg/j en 2 prises pendant 5 jours"],
+               ["M", "paracetamol", "Paracétamol 15 mg/kg toutes les 6 heures", { temp: -0.6 }],
+               ["g", "lavage", "Lavage de nez au sérum physiologique"],
+               ["XM", "gouttes", "Gouttes auriculaires antibiotiques ou anti-inflammatoires seules", "Inefficaces sur l'infection de l'oreille moyenne.", {}],
+               ["XM", "aspirine", "Aspirine", "Contre-indiquée chez l'enfant fébrile : risque de syndrome de Reye.", {}],
+               ["XM", "ains", "AINS en première intention", "Non recommandés en première intention chez l'enfant fébrile.", {}]],
+              ["Otite moyenne aiguë purulente", "Otite séromuqueuse", "Mastoïdite"], "home",
+              ["Tympan bombé et fièvre : otite moyenne aiguë purulente.", "Amoxicilline 5 jours et antalgique.", "Retour à domicile, consigne de réévaluation à 48-72 h si pas d'amélioration."]),
+
+            K("pic_hta", "Poussée Hypertensive Asymptomatique", "Médecine générale", "Difficile", ["Michel Garnier", 58, "Homme"],
+              "TA à 190/105 mmHg mesurée par l'infirmière, aucun symptôme, traitement antihypertenseur arrêté depuis 2 semaines.",
+              [78, "190/105", 98, 16, 36.8, "15/15"], 240,
+              "Sans symptôme ni atteinte d'organe : pas de traitement d'urgence. Reprise du traitement habituel, repos, contrôle de la PA après quelques heures.",
+              [["Symptômes ?", "Aucun : pas de maux de tête, pas de douleur thoracique, pas de trouble visuel."], ["Pourquoi le traitement a-t-il été arrêté ?", "Il a trouvé les comprimés inutiles et a arrêté de lui-même."]],
+              [["Examen cardio-vasculaire", "Rythme régulier, pas de souffle, pas d'œdème, auscultation pulmonaire normale."], ["Examen neurologique", "Normal, pas de déficit focal, fond d'œil non fait."]],
+              [["ecg", "ECG", "1 min", 1, { e: "normal", t: "Rythme sinusal, hypertrophie ventriculaire gauche modérée, pas de signe d'ischémie." }],
+               ["bu", "Bandelette urinaire et créatinine", "10 min", 1, { l: [["Protéinurie", "Négative", "Négative", 0], ["Créatinine", "82 µmol/L", "60-110", 0]] }],
+               ["scanner", "Scanner cérébral", "20 min", 2, "Non indiqué en l'absence de symptôme neurologique."],
+               ["troponine", "Troponine", "30 min", 2, "Non indiquée en l'absence de douleur thoracique."]],
+              [["M", "reprise", "Reprise du traitement antihypertenseur habituel"],
+               ["G", "repos", "Repos au calme 30 minutes avec nouvelle mesure de la PA", { bp: "165/95" }],
+               ["g", "education", "Éducation : automesure et observance"],
+               ["XM", "nifedipine", "Nifédipine sublinguale", "Chute brutale et imprévisible de la PA : risque d'AVC et d'ischémie myocardique.", { bp: -70 }],
+               ["XM", "iv", "Antihypertenseur IV en urgence", "Pas d'indication en l'absence d'atteinte d'organe.", { bp: -60 }]],
+              ["Poussée hypertensive sans atteinte d'organe (arrêt du traitement)", "HTA maligne", "AVC hémorragique"], "home",
+              ["Aucune souffrance d'organe : poussée hypertensive simple.", "Reprise du traitement et baisse progressive de la PA en quelques jours.", "Retour à domicile avec automesure et consultation de suivi."]),
+
+            K("dt2_inaugural", "Diabète de Type 2 Inaugural", "Médecine générale", "Facile", ["Jean-Luc Marchal", 52, "Homme"],
+              "Soif intense, urines abondantes et fatigue depuis 3 semaines, glycémie capillaire à 3,2 g/L.",
+              [84, "135/85", 99, 16, 36.9, "15/15"], 270,
+              "Diabète symptomatique sans cétose : bilan (HbA1c, créatinine, lipides), metformine et mesures hygiéno-diététiques ; pas d'hospitalisation si pas de cétose.",
+              [["Antécédents ?", "Surpoids (IMC 33), père diabétique, sédentaire."], ["Symptômes d'alerte ?", "Pas de vomissement, pas de douleur abdominale, pas de respiration rapide."]],
+              [["Examen général", "Obèse abdominal, pas de signe de déshydratation sévère, haleine normale."], ["Examen des pieds et du cœur", "Pouls présents, sensibilité conservée, auscultation normale."]],
+              [["glyc", "Glycémie + cétonurie/cétonémie", "3 min", 1, { l: [["Glycémie", "3.2 g/L", "0.7-1.1", 1], ["Cétonémie", "0.3 mmol/L", "< 0.6", 0]] }],
+               ["hba1c", "HbA1c", "24 h", 1, { l: [["HbA1c", "11.2 %", "< 6.5", 1]] }],
+               ["bilan", "Créatinine, bilan lipidique, albuminurie", "24 h", 0, { l: [["DFG estimé", "88 mL/min", "> 60", 0], ["LDL-cholestérol", "1.7 g/L", "< 1.3", 1]] }],
+               ["fond", "Fond d'œil", "30 min", 0, "Pas de rétinopathie diabétique débutante."]],
+              [["M", "metformine", "Metformine (augmentation progressive des doses)"],
+               ["G", "education", "Éducation thérapeutique : alimentation, activité physique, surveillance"],
+               ["m", "statine", "Statine selon le risque cardiovasculaire"],
+               ["XM", "insuline_iv", "Insuline IV continue", "Aucune cétose : pas d'indication à une insulinothérapie IV.", {}],
+               ["XM", "jeune", "Jeûne strict prolongé", "Dangereux et sans utilité : privilégier une alimentation équilibrée.", {}]],
+              ["Diabète de type 2 inaugural sans cétose", "Diabète de type 1", "Acidocétose diabétique"], "home",
+              ["Hyperglycémie symptomatique sans cétose : traitement ambulatoire.", "Metformine, éducation et bilan des complications.", "Retour à domicile avec consultation de suivi rapprochée."]),
+
+            K("asthme_leger", "Crise d'Asthme Légère à Modérée", "Médecine générale", "Facile", ["Inès Roche", 22, "Femme"],
+              "Toux sèche, sifflements et gêne respiratoire depuis hier soir, aggravée par la pollinisation.",
+              [100, "120/70", 96, 22, 36.9, "15/15"], 240,
+              "Mesure du débit expiratoire de pointe et de la SpO2. β2-agoniste de courte durée d'action en chambre d'inhalation ; corticoïdes oraux si crise modérée.",
+              [["Antécédents ?", "Asthme connu depuis l'enfance, traitement de fond arrêté il y a 2 mois."], ["Parle-t-elle normalement ?", "Phrases complètes, pas de réveil nocturne multiple."]],
+              [["Examen respiratoire", "Sibilants expiratoires diffus, pas de tirage important, parole normale."], ["Examen général", "Pas de cyanose, pas de sueurs, FC 100/min."]],
+              [["dep", "Débit expiratoire de pointe", "2 min", 1, { l: [["DEP", "280 L/min", "450 (valeur théorique)", 1], ["% du théorique", "62 %", "> 80 %", 1]] }],
+               ["sat", "SpO2", "1 min", 1, { l: [["SpO2 en air ambiant", "96 %", "> 94", 0]] }],
+               ["rx", "Radiographie thoracique", "15 min", 2, "Non indiquée dans une crise d'asthme simple."],
+               ["ecg", "ECG", "5 min", 2, "Non indiqué."]],
+              [["M", "salbutamol", "Salbutamol 4 à 10 bouffées en chambre d'inhalation", { spo2: 2, rr: -5, hr: 6 }],
+               ["m", "cortico", "Corticoïdes oraux courte durée (crise modérée)", {}],
+               ["g", "education", "Reprise du traitement de fond et plan d'action écrit"],
+               ["XM", "atb", "Antibiotique systématique", "Pas d'infection bactérienne : aucune indication.", {}],
+               ["XM", "sedatif", "Sédatif", "Dangereux chez un asthmatique en crise.", { rr: -6 }]],
+              ["Crise d'asthme légère à modérée", "Asthme aigu grave", "Pneumothorax"], "home",
+              ["DEP à 62 % et SpO2 normale : crise modérée.", "β2-agoniste en chambre d'inhalation, corticoïdes si nécessaire.", "Retour à domicile avec relance du traitement de fond."]),
+
+            K("pneumonie_ambulatoire", "Pneumonie Communautaire Non Grave", "Médecine générale", "Difficile", ["Étienne Dubois", 55, "Homme"],
+              "Toux productive, fièvre à 38,9 °C et point de côté droit depuis 3 jours, sans dyspnée au repos.",
+              [96, "128/78", 96, 20, 38.9, "15/15"], 270,
+              "Évaluer la gravité (CRB-65, comorbidités) : si non grave, amoxicilline 7 jours à domicile avec réévaluation à 48-72 h.",
+              [["Début et crachats ?", "Toux grasse, crachats jaunes, fièvre depuis 3 jours, frissons."], ["Terrain ?", "Ancien fumeur, pas de maladie chronique, pas d'immunodépression."]],
+              [["Examen thoracique", "Foyer de crépitants de la base droite, pas de signe de détresse."], ["Constantes et état général", "FR 20/min, SpO2 96 %, TA 128/78, orienté."]],
+              [["crb65", "Score CRB-65", "1 min", 1, "CRB-65 à 0 : patient non grave, traitement ambulatoire possible."],
+               ["rx", "Radiographie thoracique", "20 min", 1, "Opacité alvéolaire de la base droite avec bronchogramme aérien : pneumonie franche lobaire."],
+               ["crp", "CRP", "30 min", 0, { l: [["CRP", "98 mg/L", "< 5", 1]] }],
+               ["scanner", "Scanner thoracique", "30 min", 2, "Non indiqué dans une pneumonie non compliquée."]],
+              [["M", "amox", "Amoxicilline 1 g x3/j pendant 7 jours"],
+               ["m", "paracetamol", "Paracétamol", { temp: -0.6 }],
+               ["g", "reevaluation", "Réévaluation clinique à 48-72 h et consignes de surveillance"],
+               ["XM", "fluoroquinolone", "Fluoroquinolone en première intention", "À réserver à l'échec ou à l'allergie : effets indésirables graves.", {}],
+               ["XM", "atb_large", "Antibiothérapie à large spectre IV", "Disproportionnée pour une pneumonie non grave.", {}]],
+              ["Pneumonie aiguë communautaire non grave", "Bronchite aiguë virale", "Embolie pulmonaire"], "home",
+              ["CRB-65 à 0, pas de comorbidité : prise en charge ambulatoire.", "Amoxicilline pendant 7 jours.", "Retour à domicile avec réévaluation rapide si aggravation."]),
+
+            K("vppb", "Vertige Positionnel Paroxystique Bénin", "Médecine générale", "Facile", ["Monique Girard", 62, "Femme"],
+              "Vertiges brefs de quelques secondes déclenchés en se retournant dans le lit, sans autre symptôme.",
+              [74, "128/78", 99, 14, 36.7, "15/15"], 240,
+              "Vertiges positionnels brefs : manœuvre de Dix-Hallpike pour le diagnostic, manœuvre libératoire d'Epley pour le traitement. Pas d'imagerie systématique.",
+              [["Caractéristique du vertige ?", "Sensation de rotation de 20 secondes en se couchant sur le côté droit, nausées légères."], ["Autres signes ?", "Aucun trouble de la parole, de la vue, de la force ni de l'audition."]],
+              [["Examen neurologique", "Normal : pas de déficit moteur ni sensitif, pas de dysarthrie."], ["Examen otoscopique et audition", "Tympans normaux, audition conservée."]],
+              [["dixhallpike", "Manœuvre de Dix-Hallpike", "3 min", 1, "Nystagmus rotatoire géotropique de 15 secondes à droite, reproduisant le vertige : VPPB du canal postérieur droit."],
+               ["neuro", "Examen neurologique et cérébelleux complet", "3 min", 1, "Normal : pas de signe central."],
+               ["irm", "IRM cérébrale", "60 min", 2, "Non indiquée devant un VPPB typique sans signe de gravité."],
+               ["audio", "Audiométrie", "30 min", 2, "Non nécessaire."]],
+              [["M", "epley", "Manœuvre libératoire d'Epley", { gcs: "15/15" }],
+               ["g", "conseils", "Conseils : éviter les positions déclenchantes, reprise progressive"],
+               ["g", "antiemetique", "Antiémétique ponctuel en cas de nausées intenses"],
+               ["XM", "antivertigineux", "Antivertigineux au long cours", "Retarde la compensation et n'améliore pas le VPPB.", {}],
+               ["XM", "cortico", "Corticoïdes", "Sans efficacité dans le VPPB.", {}]],
+              ["VPPB du canal postérieur droit", "AVC cérébelleux", "Névrite vestibulaire"], "home",
+              ["Vertiges brefs positionnels avec nystagmus typique : VPPB.", "Manœuvre d'Epley efficace en quelques minutes.", "Retour à domicile sans imagerie."]),
+
+            K("migraine", "Crise de Migraine", "Médecine générale", "Facile", ["Sophie Aubry", 29, "Femme"],
+              "Céphalée pulsatile unilatérale droite depuis 6 heures avec nausées et photophobie, déjà vécue plusieurs fois.",
+              [78, "115/72", 99, 15, 36.8, "15/15"], 240,
+              "Éliminer les signes d'alerte (début brutal, fièvre, déficit, premier épisode après 50 ans). Crise typique : AINS puis triptan si besoin. Pas d'imagerie.",
+              [["Histoire des crises ?", "Même type de crise depuis 10 ans, environ une par mois, dans le cadre des règles."], ["Signes d'alerte ?", "Aucun : pas de fièvre, pas de début brutal, pas de trouble neurologique."]],
+              [["Examen neurologique", "Normal : pas de déficit, pas de raideur de nuque, fond d'œil non nécessaire."], ["Examen général", "Apyrétique, légère pâleur, aime rester dans le noir."]],
+              [["signes_alerte", "Recherche de signes d'alerte", "2 min", 1, "Aucun signe d'alerte : céphalée primaire typique."],
+               ["neuro", "Examen neurologique complet", "3 min", 1, "Normal."],
+               ["scanner", "Scanner cérébral", "30 min", 2, "Non indiqué devant une migraine typique sans signe d'alerte."],
+               ["bio", "Bilan biologique", "60 min", 2, "Sans intérêt."]],
+              [["M", "ains", "AINS (ibuprofène 400 mg ou kétoprofène)", { hr: -4 }],
+               ["M", "triptan", "Triptan (sumatriptan) si crise modérée à sévère"],
+               ["g", "antiemetique", "Antiémétique (métoclopramide)"],
+               ["XM", "opioides", "Codéine ou tramadol", "Peu efficaces et risque d'abus dans la migraine.", {}],
+               ["XM", "ergot", "Dérivés ergotés associés au triptan", "Association contre-indiquée : risque de vasoconstriction excessive.", {}]],
+              ["Migraine sans aura", "Hémorragie sous-arachnoïdienne", "Méningite"], "home",
+              ["Crise typique sans signe d'alerte : pas d'imagerie.", "AINS puis triptan en traitement de crise.", "Retour à domicile, discuter un traitement de fond si crises fréquentes."]),
+
+            K("entorse_cheville", "Entorse Bénigne de Cheville", "Médecine générale", "Facile", ["Lucas Moreau", 19, "Homme"],
+              "Torsion de la cheville droite à l'entraînement de football, douleur et gonflement externe, marche possible.",
+              [76, "122/74", 99, 14, 36.8, "15/15"], 210,
+              "Appliquer les règles d'Ottawa : pas de radiographie si négatives. Protocole GREC, appui précoce, rééducation.",
+              [["Mécanisme ?", "Inversion du pied en réception de saut. Craquement ressenti, a pu faire 4 pas ensuite."], ["Antécédents ?", "Une entorse l'an dernier, rien d'autre."]],
+              [["Examen de la cheville", "Œdème et ecchymose malléolaire externe, douleur à la palpation du ligament talo-fibulaire antérieur."], ["Examen osseux", "Pas de douleur au bord postérieur des malléoles ni à la base du 5e métatarsien."]],
+              [["ottawa", "Règles d'Ottawa", "1 min", 1, "Négatives : pas de douleur osseuse, appui de 4 pas possible. Radiographie non nécessaire."],
+               ["stabilite", "Test de stabilité ligamentaire (tiroir antérieur)", "2 min", 1, "Tiroir antérieur négatif : entorse bénigne (stade 1)."],
+               ["rx", "Radiographie de cheville systématique", "30 min", 2, "Non indiquée si les règles d'Ottawa sont négatives."],
+               ["irm", "IRM de cheville", "60 min", 2, "Non indiquée."]],
+              [["M", "grec", "Protocole GREC : glaçage, repos relatif, élévation, compression", {}],
+               ["G", "appui", "Appui précoce autorisé et rééducation proprioceptive"],
+               ["g", "antalgique", "Paracétamol ± AINS en cure courte"],
+               ["XG", "platre", "Immobilisation plâtrée de 3 semaines", "Inutile et délétère : retarde la récupération et favorise la raideur.", {}],
+               ["XM", "cortico", "Infiltration de corticoïdes", "Non indiquée dans une entorse bénigne.", {}]],
+              ["Entorse externe bénigne de cheville (stade 1)", "Fracture bimalléolaire", "Rupture du tendon d'Achille"], "home",
+              ["Règles d'Ottawa négatives : pas de radiographie.", "Protocole GREC et reprise de l'appui.", "Retour à domicile, rééducation progressive."]),
+
+            K("zona", "Zona Thoracique", "Médecine générale", "Facile", ["Henriette Lambert", 68, "Femme"],
+              "Douleur en ceinture du côté gauche depuis 3 jours avec vésicules groupées sur une bande de peau, apparues depuis 36 heures.",
+              [78, "135/80", 99, 15, 37.2, "15/15"], 240,
+              "Zona < 72 heures chez un patient de plus de 50 ans : valaciclovir. Antalgie adaptée. Rechercher un zona ophtalmique ou une immunodépression.",
+              [["Début ?", "Brûlure puis vésicules il y a 36 heures sur le flanc gauche, très douloureuses."], ["Terrain ?", "Aucun traitement immunosuppresseur, pas de cancer connu."]],
+              [["Examen cutané", "Bande de vésicules sur base érythémateuse sur le dermatome T8 gauche, unilatérale, ne dépasse pas la ligne médiane."], ["Examen des yeux et du visage", "Pas de lésion de l'hémiface, pas d'atteinte oculaire."]],
+              [["dermatome", "Examen du dermatome et recherche de signes de gravité", "2 min", 1, "Zona typique, pas de zona ophtalmique, pas de signe de dissémination."],
+               ["terrain", "Recherche d'une immunodépression", "2 min", 1, "Aucune cause d'immunodépression retrouvée."],
+               ["pcr", "PCR virale des vésicules", "48 h", 2, "Non nécessaire devant un tableau typique."],
+               ["scanner", "Scanner thoracique", "30 min", 2, "Non indiqué."]],
+              [["M", "valaciclovir", "Valaciclovir 1 g x3/j pendant 7 jours"],
+               ["M", "antalgie", "Antalgiques adaptés (paracétamol ± palier 2 en cas de douleurs intenses)", { hr: -3 }],
+               ["g", "soins", "Soins locaux antiseptiques doux, vêtements amples"],
+               ["XM", "cortico", "Corticoïdes systémiques", "Pas d'indication : risque infectieux sans bénéfice sur les douleurs.", {}],
+               ["XM", "creme_atb", "Antibiotique local systématique", "Aucune indication en l'absence de surinfection.", {}]],
+              ["Zona thoracique", "Herpès simplex", "Infarctus du myocarde"], "home",
+              ["Éruption vésiculeuse unilatérale sur dermatome : zona.", "Antiviral dans les 72 heures et antalgie.", "Retour à domicile, informer sur le risque de douleurs post-zostériennes."]),
+
+            K("erysipele", "Érysipèle de Jambe", "Médecine générale", "Difficile", ["Raymond Gilles", 70, "Homme"],
+              "Placard rouge, chaud et douloureux de la jambe gauche avec fièvre à 38,6 °C et frissons depuis 24 heures.",
+              [92, "128/76", 98, 16, 38.6, "15/15"], 270,
+              "Placard inflammatoire bien limité et fébrile : érysipèle. Amoxicilline, recherche de porte d'entrée et de signes de gravité. Pas d'AINS.",
+              [["Début ?", "Rougeur et douleur de la jambe depuis hier, fièvre et frissons la nuit dernière."], ["Terrain ?", "Insuffisance veineuse, intertrigo interdigital connu, pas de diabète."]],
+              [["Examen cutané", "Placard rouge vif, chaud, bien limité, avec bourrelet périphérique, sans bulle hémorragique ni nécrose."], ["Recherche de porte d'entrée", "Intertrigo des espaces interdigitaux, fissures, pas de plaie profonde."]],
+              [["gravite", "Recherche de signes de gravité", "2 min", 1, "Pas de choc, pas de nécrose, pas de douleur disproportionnée : forme non compliquée."],
+               ["doppler", "Écho-Doppler veineux", "30 min", 0, "Pas de thrombose veineuse profonde."],
+               ["bio", "NFS, CRP", "60 min", 2, "Non nécessaires dans un érysipèle non compliqué."],
+               ["scanner", "Scanner des parties molles", "30 min", 2, "Non indiqué : l'imagerie n'est pas utile dans une forme typique."]],
+              [["M", "amox", "Amoxicilline (3 g/j en 3 prises, 7 jours)", { temp: -0.4 }],
+               ["g", "porte", "Traitement de la porte d'entrée (intertrigo)"],
+               ["g", "contention", "Contention veineuse après la phase aiguë"],
+               ["XM", "ains", "AINS", "Risque d'aggravation et de complications nécrosantes.", {}],
+               ["XM", "cortico", "Corticoïdes", "Contre-indiqués : peuvent aggraver l'infection.", {}]],
+              ["Érysipèle de jambe", "Thrombose veineuse profonde", "Fasciite nécrosante"], "home",
+              ["Placard bien limité, fièvre, porte d'entrée évidente : érysipèle.", "Amoxicilline et traitement de la porte d'entrée.", "Retour à domicile avec réévaluation à 48-72 h."]),
+
+            K("attaque_panique", "Attaque de Panique", "Médecine générale", "Facile", ["Manon Lefèvre", 26, "Femme"],
+              "Brutale oppression thoracique, palpitations, picotements des mains et peur de mourir, en pleine journée de travail.",
+              [112, "125/78", 99, 26, 36.8, "15/15"], 240,
+              "Éliminer une cause organique (ECG, SpO2, glycémie), rassurer et enseigner la respiration lente. Pas de benzodiazépine en routine.",
+              [["Début ?", "En réunion : cœur qui s'emballe, serrement dans la poitrine, mains qui picotent, peur de mourir. Dure depuis 20 minutes."], ["Antécédents ?", "Un épisode similaire il y a 6 mois. Beaucoup de stress, 5 cafés par jour."]],
+              [["Examen général", "Anxieuse, tachypnée, mains moites, tétanie discrète des doigts."], ["Examen cardio-pulmonaire", "Rythme régulier, pas de souffle, auscultation normale."]],
+              [["ecg", "ECG", "1 min", 1, { e: "tachy", t: "Tachycardie sinusale à 112/min, pas d'anomalie de repolarisation." }],
+               ["sat", "SpO2 et glycémie capillaire", "2 min", 1, { l: [["SpO2", "99 %", "> 95", 0], ["Glycémie", "0.95 g/L", "0.7-1.1", 0]] }],
+               ["troponine", "Troponine", "30 min", 2, "Peu utile chez une femme de 26 ans avec ECG normal et tableau typique."],
+               ["scanner", "Angio-scanner thoracique", "30 min", 2, "Non indiqué sans facteur de risque d'embolie."]],
+              [["G", "respiration", "Respiration lente guidée (cohérence cardiaque)", { hr: -20, rr: -10 }],
+               ["M", "reassurance", "Explications rassurantes sur la nature du malaise", { hr: -8 }],
+               ["g", "suivi", "Orientation vers un suivi psychologique (TCC)"],
+               ["XG", "sac", "Respirer dans un sac en papier", "Risque d'hypoxie et de retard du diagnostic.", { spo2: -3 }],
+               ["XM", "benzo_long", "Benzodiazépine au long cours", "Risque de dépendance : pas de traitement de fond par benzodiazépines.", {}]],
+              ["Attaque de panique", "Embolie pulmonaire", "Angor"], "home",
+              ["Tableau typique après élimination d'une cause organique.", "Rassurer et respirer lentement.", "Retour à domicile avec orientation vers un suivi spécialisé."]),
+
+            K("goutte", "Crise de Goutte Aiguë", "Médecine générale", "Facile", ["Bernard Fabre", 58, "Homme"],
+              "Douleur très intense du gros orteil droit réveillant la nuit, rouge, chaud, après un repas copieux.",
+              [84, "138/84", 99, 16, 37.6, "15/15"], 240,
+              "Podagre typique : colchicine à faible dose ou AINS ; glaçage. Rester vigilant devant une arthrite septique (fièvre élevée, immunodépression).",
+              [["Début ?", "Brutal à 3 h du matin, le moindre drap est insupportable, après un repas de fête."], ["Antécédents ?", "Hypertension traitée par diurétique, surpoids, 1 épisode similaire il y a 2 ans."]],
+              [["Examen de l'articulation", "Articulation métatarsophalangienne du gros orteil rouge, chaude, très douloureuse, sans plaie."], ["Examen général", "Apyrétique ou subfébrile, pas de tophus, pas d'autre articulation touchée."]],
+              [["gravite", "Recherche de signes de gravité (fièvre élevée, immunodépression, plaie)", "2 min", 1, "Aucun signe d'infection : crise de goutte probable."],
+               ["urate", "Uricémie", "24 h", 0, { l: [["Uricémie", "560 µmol/L", "< 420", 1], ["Créatinine", "98 µmol/L", "60-110", 0]] }],
+               ["ponction", "Ponction articulaire systématique", "20 min", 2, "Non nécessaire si tableau typique sans signe d'infection."],
+               ["rx", "Radiographie du pied", "20 min", 2, "Non indiquée à la phase aiguë."]],
+              [["M", "colchicine", "Colchicine à faible dose (1 mg puis 0,5 mg une heure après, puis 0,5 mg 1 à 2 fois/j)", { hr: -3 }],
+               ["m", "ains", "AINS en cure courte (si pas de contre-indication)"],
+               ["g", "glace", "Glaçage local et repos de l'articulation"],
+               ["XM", "colchicine_forte", "Colchicine à forte dose (> 3 mg/j)", "Toxicité digestive et hématologique sans gain d'efficacité.", {}],
+               ["XM", "aspirine", "Aspirine à dose antalgique", "À éviter dans la goutte : peut modifier l'uricémie.", {}]],
+              ["Crise de goutte aiguë du gros orteil", "Arthrite septique", "Hallux valgus"], "home",
+              ["Tableau typique chez un homme avec facteurs de risque : goutte.", "Colchicine à faible dose ou AINS.", "Retour à domicile ; traitement de fond à discuter après la crise."]),
+
+            K("conjonctivite", "Conjonctivite Virale", "Médecine générale", "Facile", ["Antoine Perrot", 30, "Homme"],
+              "Œil droit rouge et larmoyant avec sensation de sable depuis 2 jours, l'autre œil touché ce matin, rhume associé.",
+              [72, "120/76", 99, 14, 37.0, "15/15"], 210,
+              "Conjonctivite virale : sérum physiologique, hygiène des mains, pas d'antibiotique. Rechercher douleur, baisse de vision ou photophobie (kératite, glaucome).",
+              [["Symptômes ?", "Sensation de sable, larmoiement abondant, sécrétions claires, pas de baisse de vision."], ["Contexte ?", "Collègue avec conjonctivite et rhume, pas de lentilles."]],
+              [["Examen oculaire", "Conjonctive rouge diffuse, sécrétions claires, adénopathie pré-auriculaire, cornée transparente."], ["Acuité visuelle", "Normale des deux côtés, pas de photophobie."]],
+              [["gravite", "Recherche de signes de gravité (douleur, baisse de vision)", "2 min", 1, "Aucun : œil non douloureux, vision normale, pas de photophobie."],
+               ["fluoresceine", "Test à la fluorescéine", "5 min", 1, "Cornée indemne : pas de kératite."],
+               ["prelevement", "Prélèvement conjonctival", "72 h", 2, "Non nécessaire dans une conjonctivite virale typique."],
+               ["scanner", "Imagerie orbitaire", "30 min", 2, "Non indiquée."]],
+              [["M", "serum", "Lavage de l'œil au sérum physiologique plusieurs fois par jour"],
+               ["G", "hygiene", "Hygiène des mains, linge et mouchoirs séparés, éviction temporaire"],
+               ["g", "larmes", "Larmes artificielles en cas de gêne"],
+               ["XM", "cortico_collyre", "Collyre corticoïde", "Contre-indiqué sans avis spécialisé : risque d'aggravation d'une kératite herpétique.", {}],
+               ["XM", "atb_collyre", "Collyre antibiotique systématique", "Inutile dans une conjonctivite virale.", {}]],
+              ["Conjonctivite virale (adénovirus)", "Glaucome aigu", "Kératite herpétique"], "home",
+              ["Rougeur, larmoiement et adénopathie sans signe de gravité : conjonctivite virale.", "Lavages au sérum physiologique et hygiène.", "Retour à domicile ; revenir si douleur ou baisse de vision."]),
+
+            K("syncope_vasovagale", "Syncope Vasovagale", "Médecine générale", "Facile", ["Clara Bonnet", 21, "Femme"],
+              "Perte de connaissance brève debout dans une file d'attente chaude, prodromes de sueurs et de vision noire, récupération rapide.",
+              [74, "108/66", 99, 14, 36.7, "15/15"], 240,
+              "Syncope typique : ECG systématique, recherche de signes d'alerte cardiaque (effort, antécédents familiaux, palpitations). Pas d'imagerie cérébrale.",
+              [["Contexte de la syncope ?", "Station debout prolongée, chaleur, nausées et sueurs, chute lente, réveil en 20 secondes."], ["Antécédents ?", "Aucun, pas de mort subite dans la famille, pas de palpitations."]],
+              [["Examen cardio-vasculaire", "Rythme régulier, pas de souffle, TA en position debout stable."], ["Examen neurologique", "Normal, pas de morsure de langue, pas de confusion post-critique."]],
+              [["ecg", "ECG de repos", "1 min", 1, { e: "normal", t: "Rythme sinusal normal, PR et QT normaux, pas de bloc, pas d'onde delta, pas de signe de Brugada." }],
+               ["glycemie", "Glycémie capillaire", "1 min", 1, { l: [["Glycémie", "0.88 g/L", "0.7-1.1", 0]] }],
+               ["orthostatisme", "Mesure de la PA debout/couché", "5 min", 0, { l: [["TA couchée", "112/68", "—", 0], ["TA à 3 minutes debout", "108/66", "—", 0]] }],
+               ["scanner", "Scanner cérébral", "30 min", 2, "Non indiqué : aucun signe neurologique focal."]],
+              [["G", "allonger", "Allonger la patiente, jambes surélevées", { hr: -4, bp: "115/70" }],
+               ["M", "ecg", "Réalisation d'un ECG avant la sortie"],
+               ["g", "hydratation", "Conseils : hydratation, éviter la station debout prolongée"],
+               ["XG", "debout", "Maintenir la patiente debout pour éviter la chute", "Aggrave l'hypotension et la perte de connaissance.", { bp: -10 }],
+               ["XM", "bb", "Introduction d'un bêtabloquant", "Pas d'indication et risque d'aggravation.", { hr: -6 }]],
+              ["Syncope vasovagale", "BAV complet", "Cardiomyopathie hypertrophique"], "home",
+              ["Contexte typique, prodromes, récupération rapide et ECG normal.", "Allonger, jambes surélevées, hydrater.", "Retour à domicile avec conseils."]),
+
+            K("douleur_thoracique_parietale", "Douleur Thoracique Pariétale", "Médecine générale", "Difficile", ["Maxime Colin", 30, "Homme"],
+              "Douleur thoracique gauche aiguë, reproduite par la palpation et les mouvements du tronc, sans dyspnée.",
+              [78, "122/76", 99, 15, 36.8, "15/15"], 240,
+              "Douleur reproductible à la palpation chez un sujet jeune sans facteur de risque : ECG pour éliminer une cause cardiaque, antalgiques, pas d'examens à outrance.",
+              [["Caractéristiques ?", "Douleur à gauche, pique à l'inspiration profonde et en se tournant, depuis 2 jours."], ["Facteurs de risque ?", "Non-fumeur, sportif, pas d'antécédent familial précoce, pas de prise de toxique."]],
+              [["Examen de la paroi thoracique", "Douleur à la palpation des articulations chondro-costales gauches, reproduisant exactement la douleur."], ["Examen cardio-pulmonaire", "Auscultation normale, pas de frottement, pas de signe d'EP."]],
+              [["ecg", "ECG", "1 min", 1, { e: "normal", t: "Rythme sinusal normal, repolarisation normale, pas de sus-décalage ST." }],
+               ["gravite", "Recherche de drapeaux rouges (dyspnée, syncope, fièvre, post-traumatique)", "2 min", 1, "Aucun signe d'alerte retrouvé."],
+               ["troponine", "Troponine", "30 min", 0, { l: [["Troponine HS", "6 ng/L", "< 14", 0]] }],
+               ["scanner", "Angio-scanner thoracique", "30 min", 2, "Non indiqué : faible probabilité d'embolie pulmonaire."]],
+              [["M", "antalgiques", "Antalgiques (paracétamol ± AINS en cure courte)"],
+               ["g", "chaleur", "Chaleur locale, étirements doux"],
+               ["g", "conseils", "Consignes : revenir si dyspnée, malaise ou douleur d'effort"],
+               ["XM", "antiagregant", "Aspirine et anticoagulation « par précaution »", "Aucune indication : expose au risque hémorragique.", {}],
+               ["XM", "opioides", "Opioïdes forts", "Disproportionnés pour une douleur pariétale bénigne.", {}]],
+              ["Douleur pariétale d'origine costo-chondrale", "Infarctus du myocarde", "Péricardite aiguë"], "home",
+              ["Douleur reproductible à la palpation et ECG normal : origine pariétale.", "Antalgiques simples et rassurance.", "Retour à domicile avec consignes de surveillance."]),
+
+            K("deshydratation_agee", "Déshydratation du Sujet Âgé en Canicule", "Médecine générale", "Difficile", ["Marguerite Chevalier", 84, "Femme"],
+              "Fatigue, bouche sèche et somnolence depuis 2 jours de forte chaleur, appétit diminué, urines rares.",
+              [96, "100/60", 96, 18, 37.8, "14/15"], 270,
+              "Patient âgé fragile en canicule : réhydratation, arrêt temporaire du diurétique et de l'IEC, bilan ionique et rénal. Hospitalisation si insuffisance rénale ou échec de la voie orale.",
+              [["Traitements ?", "Furosémide, IEC et metformine pour une insuffisance cardiaque et un diabète."], ["Contexte ?", "Vit seule, boit peu depuis 2 jours, canicule à 38 °C dans l'appartement."]],
+              [["Examen général", "Muqueuses sèches, pli cutané persistant, tachycardie modérée, légère somnolence."], ["Examen cardio-pulmonaire", "Pas d'œdème pulmonaire, pas de signe de décompensation cardiaque."]],
+              [["bio", "Ionogramme sanguin, urée, créatinine", "30 min", 1, { l: [["Natrémie", "148 mmol/L", "135-145", 1], ["Créatinine", "165 µmol/L", "45-90", 1], ["Urée", "14 mmol/L", "2.5-7.5", 1], ["Glycémie", "1.1 g/L", "0.7-1.1", 0]] }],
+               ["bu", "Bandelette urinaire", "5 min", 1, "Densité élevée, pas d'infection urinaire."],
+               ["ecg", "ECG", "1 min", 0, { e: "tachy", t: "Tachycardie sinusale modérée, pas de trouble du rythme." }],
+               ["scanner", "Scanner cérébral", "30 min", 2, "Non indiqué : somnolence expliquée par la déshydratation."]],
+              [["G", "rehydratation", "Réhydratation orale puis perfusion de NaCl 0,9 % si insuffisant", { hr: -10, bp: "115/68", gcs: "15/15" }],
+               ["M", "stop", "Suspension temporaire du diurétique, de l'IEC et de la metformine", {}],
+               ["g", "rafraichir", "Rafraîchissement du patient (linge humide, ventilation)", { temp: -0.4 }],
+               ["XM", "diuretique", "Poursuite du furosémide", "Aggrave la déshydratation et l'insuffisance rénale.", { bp: -10, hr: 8 }],
+               ["XG", "restriction", "Restriction hydrique", "Dangereuse dans ce contexte de déshydratation.", { hr: 8 }]],
+              ["Déshydratation avec insuffisance rénale fonctionnelle (canicule)", "Sepsis", "AVC ischémique"], "med",
+              ["Hypernatrémie et insuffisance rénale fonctionnelle : déshydratation sévère du sujet âgé.", "Réhydratation et suspension des médicaments aggravants.", "Hospitalisation en médecine pour surveillance rénale et ionique."]),
+
+            K("lombo_queue_cheval", "Syndrome de la Queue de Cheval", "Médecine générale", "Critique", ["Alain Mercier", 45, "Homme"],
+              "Lombosciatique bilatérale hyperalgique avec engourdissement du périnée et difficulté à uriner depuis la nuit.",
+              [88, "135/85", 98, 16, 36.8, "15/15"], 210,
+              "Anesthésie en selle + troubles sphinctériens = urgence neurochirurgicale : IRM en urgence et décompression, pas de retour à domicile.",
+              [["Début ?", "Douleurs lombaires depuis 4 jours, depuis cette nuit les deux jambes sont engourdies et il n'arrive plus à uriner."], ["Troubles associés ?", "Perte de sensation en s'essuyant, difficulté à sentir la selle."]],
+              [["Examen neurologique", "Déficit de la flexion plantaire bilatéral, abolition des réflexes achilléens, hypoesthésie des deux membres inférieurs."], ["Examen périnéal", "Anesthésie en selle, tonus anal diminué, globe vésical palpable."]],
+              [["irm", "IRM lombo-sacrée en urgence", "30 min", 1, "Volumineuse hernie discale L4-L5 médiane comprimant les racines de la queue de cheval."],
+               ["residu", "Mesure du résidu post-mictionnel (bladder scan)", "5 min", 1, "Résidu post-mictionnel de 650 mL : rétention urinaire."],
+               ["rx", "Radiographie du rachis lombaire", "20 min", 2, "Peu contributive : retarde l'IRM."],
+               ["bio", "Bilan biologique inflammatoire", "60 min", 2, "Non prioritaire."]],
+              [["G", "appel", "Appeler le SAMU (15) pour transfert urgent en neurochirurgie", { gcs: "15/15" }],
+               ["G", "sondage", "Sondage vésical évacuateur", {}],
+               ["g", "antalgie", "Antalgie adaptée"],
+               ["XG", "domicile", "Retour à domicile avec antalgiques et rendez-vous différé", "Risque de séquelles définitives (incontinence, impuissance, déficit moteur).", { gcs: "15/15" }],
+               ["XM", "cortico", "Corticoïdes oraux seuls", "Insuffisants : la décompression chirurgicale est urgente.", {}]],
+              ["Syndrome de la queue de cheval sur hernie discale", "Lombalgie commune", "Colique néphrétique"], "neurochir",
+              ["Anesthésie en selle + rétention urinaire : syndrome de la queue de cheval.", "IRM en urgence et appel du 15.", "Neurochirurgie : décompression en urgence (< 24-48 h)."]),
+
+            K("angor_cabinet", "Angor Instable vu au Cabinet", "Médecine générale", "Difficile", ["Dominique Navarro", 63, "Homme"],
+              "Douleur thoracique constrictive à l'effort minime depuis 3 jours, aujourd'hui survenue au repos pendant 20 minutes.",
+              [92, "148/88", 97, 18, 36.8, "15/15"], 240,
+              "Douleur coronarienne de repos chez un diabétique : urgence. ECG, aspirine, appel du SAMU pour transfert en USIC, pas de retour à domicile.",
+              [["Antécédents ?", "Diabète de type 2, hypertension, tabac, hypercholestérolémie non traitée."], ["Douleur actuelle ?", "Épisode de 20 minutes au repos ce matin, régressif, aujourd'hui encore une gêne résiduelle."]],
+              [["Examen cardio-pulmonaire", "Auscultation normale, pas de souffle, pas de signe d'insuffisance cardiaque."], ["Constantes", "TA 148/88, FC 92, SpO2 97 %, apyrétique."]],
+              [["ecg", "ECG 12 dérivations", "1 min", 1, { e: "normal", t: "Sous-décalage ST de 1 mm en V4-V6, sans sus-décalage ST : syndrome coronarien aigu sans sus-décalage suspect." }],
+               ["tropo", "Troponine (au cabinet ou à l'hôpital)", "30 min", 1, { l: [["Troponine HS", "85 ng/L", "< 14", 1]] }],
+               ["rx", "Radiographie thoracique", "30 min", 2, "Non prioritaire : ne doit pas retarder le transfert."],
+               ["bio", "Bilan biologique complet au cabinet", "24 h", 2, "Ne doit pas retarder le transfert."]],
+              [["G", "appel", "Appel du SAMU (15) pour transfert médicalisé", {}],
+               ["M", "aspirine", "Aspirine 250 mg per os ou IV", {}],
+               ["g", "repos", "Repos strict, monitorage et oxygène si nécessaire"],
+               ["m", "nitres", "Dérivés nitrés sublinguaux si PAS > 100 mmHg", { bp: -8 }],
+               ["XG", "domicile", "Retour à domicile avec bilan en consultation", "Syndrome coronarien aigu : risque d'infarctus et de mort subite.", {}],
+               ["XM", "ains", "AINS pour la douleur", "Contre-indiqués dans le syndrome coronarien.", {}]],
+              ["Angor instable / syndrome coronarien aigu sans sus-décalage", "Douleur pariétale", "Reflux gastro-œsophagien"], "usic",
+              ["Douleur de repos avec modification ECG : urgence cardiologique.", "Aspirine et appel du SAMU sans attendre.", "USIC : coronarographie dans les 24 heures."]),
+
+            K("appendicite", "Appendicite Aiguë", "Médecine générale", "Difficile", ["Théo Garnier", 23, "Homme"],
+              "Douleur abdominale débutée au nombril puis localisée en fosse iliaque droite, nausées et fièvre à 38,3 °C.",
+              [96, "122/74", 99, 18, 38.3, "15/15"], 270,
+              "Douleur migrant vers la fosse iliaque droite avec défense : imagerie (échographie ou scanner), biologie, antibiothérapie et chirurgie. Pas de retour à domicile.",
+              [["Début ?", "Douleur péri-ombilicale hier, puis fixée en bas à droite avec nausées et perte d'appétit."], ["Transit ?", "Pas de diarrhée, pas de troubles urinaires, pas de voyage récent."]],
+              [["Examen abdominal", "Défense en fosse iliaque droite, point de McBurney douloureux, signe de Blumberg positif."], ["Examen général", "Fièvre à 38,3 °C, tachycardie modérée, patient immobile."]],
+              [["echo", "Échographie abdominale", "15 min", 1, "Appendice non compressible de 10 mm, épanchement péri-appendiculaire : appendicite aiguë."],
+               ["bio", "NFS, CRP", "30 min", 1, { l: [["Leucocytes", "16 000 /mm3", "4000-10000", 1], ["CRP", "86 mg/L", "< 5", 1]] }],
+               ["urines", "Bandelette urinaire", "5 min", 0, "Pas d'infection urinaire, légère leucocyturie réactionnelle."],
+               ["asp", "Abdomen sans préparation", "20 min", 2, "Peu contributif dans l'appendicite."]],
+              [["G", "jeune", "Jeûne strict et perfusion", {}],
+               ["M", "atb", "Antibiothérapie IV (amoxicilline-acide clavulanique) en préopératoire", { temp: -0.4 }],
+               ["m", "antalgie", "Antalgie IV (paracétamol ± morphine)", { hr: -4 }],
+               ["XM", "laxatif", "Laxatif ou lavement", "Risque de perforation appendiculaire.", { hr: 8 }],
+               ["XG", "domicile", "Retour à domicile avec antalgiques et surveillance", "Risque de perforation et de péritonite.", { temp: 0.3 }]],
+              ["Appendicite aiguë", "Gastro-entérite aiguë", "Colique néphrétique"], "bloc",
+              ["Douleur migrant vers la fosse iliaque droite avec défense : appendicite.", "Échographie et biologie confirment le diagnostic.", "Chirurgie (appendicectomie) avec antibiothérapie préopératoire."])
+        );
+
+        /* ---------------- LOT F : arrêts cardiaques (mode réanimation ERC) ---------------- */
+        EXTRA_CASES.push(
+            Object.assign(K("acls_aesp_ep", "ACR en AESP : Embolie Pulmonaire Massive", "Réanimation", "Critique", ["Chantal Vidal", 62, "Femme"],
+              "Effondrement brutal 12 jours après une prothèse de hanche : inconsciente, sans pouls, rythme organisé au scope.",
+              [50, "0/0", 0, 0, 36.7, "3/15"], 300,
+              "AESP : pas de choc. Massage de qualité, adrénaline dès l'accès posé, et recherche active de la cause (4H/4T).",
+              [["Que s'est-il passé ?", "Elle se plaignait d'essoufflement depuis 2 jours, s'est levée et s'est effondrée sans un mot."], ["Contexte ?", "Prothèse de hanche il y a 12 jours, pas d'anticoagulant à la sortie, mollet droit gonflé hier."]],
+              [["Évaluation initiale", "Inconsciente, pas de respiration, aucun pouls carotidien. Cyanose du visage."], ["Examen des membres", "Mollet droit augmenté de volume, chaud, cicatrice de hanche propre."]],
+              [["gds", "Gaz du sang pendant la RCP", "2 min", 0, { l: [["pH", "7.05", "7.35-7.45", 1], ["PaCO2", "75 mmHg", "35-45", 1], ["Lactates", "10 mmol/L", "< 2.0", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "tachy", t: "Tachycardie sinusale, S1Q3T3, bloc de branche droit : surcharge ventriculaire droite." }],
+               ["angio", "Angio-scanner après RACS", "10 min", 0, "Thrombus bilatéral des artères pulmonaires principales : embolie pulmonaire massive."]],
+              [], ["ACR en AESP sur embolie pulmonaire massive", "ACR en FV d'origine coronaire", "ACR sur tamponnade"], "rea",
+              ["Rythme organisé sans pouls : AESP, pas de choc.", "Cause identifiée (EP massive) et traitée par thrombolyse pendant la RCP.", "Réanimation après RACS : angio-scanner, anticoagulation, surveillance hémodynamique."]),
+              { acls: { rhythm: "pea", kind: "wide", cause: "thrombose_pulm", needs: { adr: 1, cprSec: 60, cause: true, airway: false },
+                echo: "ventricule droit très dilaté, septum paradoxal, ventricule gauche collabé : embolie pulmonaire massive.",
+                post: { hr: 105, bp: "85/50", spo2: 88, rr: 14, gcs: "5/15" }, postRhythm: "sinus" } }),
+
+            Object.assign(K("acls_aesp_tamponnade", "ACR en AESP : Tamponnade après Chirurgie Cardiaque", "Réanimation", "Critique", ["Gérard Lacroix", 58, "Homme"],
+              "Deuxième jour d'un pontage coronarien : hypotension croissante puis arrêt, rythme organisé sans pouls.",
+              [60, "0/0", 0, 0, 36.9, "3/15"], 300,
+              "AESP en postopératoire cardiaque : penser tamponnade. Échographie pendant les pauses ; drainage urgent.",
+              [["Contexte ?", "Pontage coronarien avant-hier, drains thoraciques arrêtés ce matin, TA en baisse depuis une heure."], ["Drainage ?", "Les drains n'ont plus rien donné depuis 2 heures alors qu'ils saignaient auparavant."]],
+              [["Évaluation initiale", "Inconscient, pas de pouls, cicatrice de sternotomie propre, jugulaires distendues."], ["Examen thoracique", "Bruits du cœur non perçus à l'auscultation pendant le massage, drains thoraciques secs."]],
+              [["gds", "Gaz du sang pendant la RCP", "2 min", 0, { l: [["pH", "7.10", "7.35-7.45", 1], ["Lactates", "9 mmol/L", "< 2.0", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "tachy", t: "Tachycardie sinusale avec microvoltage et alternance électrique." }],
+               ["rx", "Radiographie thoracique après RACS", "10 min", 0, "Élargissement médiastinal, silhouette cardiaque globuleuse."]],
+              [], ["ACR en AESP sur tamponnade postopératoire", "ACR en FV d'origine coronaire", "ACR par embolie pulmonaire massive"], "bloc",
+              ["Contexte postopératoire cardiaque avec drains secs : tamponnade.", "Échographie et drainage (rouvrir le thorax) pendant la RCP.", "Retour au bloc pour hémostase après RACS."]),
+              { acls: { rhythm: "pea", kind: "lowvolt", cause: "tamponnade", needs: { adr: 1, cprSec: 60, cause: true, airway: false },
+                echo: "épanchement péricardique compressif avec collapsus des cavités droites : tamponnade.",
+                post: { hr: 110, bp: "95/60", spo2: 94, rr: 14, gcs: "6/15" }, postRhythm: "sinus" } }),
+
+            Object.assign(K("acls_asystole_hypoxie", "ACR en Asystolie : Hypoxie (Noyade)", "Réanimation", "Critique", ["Samuel Perret", 34, "Homme"],
+              "Repêché inanimé d'une piscine après plusieurs minutes d'immersion : cyanose, pas de pouls, asystolie.",
+              [0, "0/0", 0, 0, 34.0, "3/15"], 300,
+              "ACR hypoxique : la ventilation efficace est la priorité. Sécuriser les voies aériennes, oxygène, massage, adrénaline.",
+              [["Circonstances ?", "Immergé environ 6 minutes, ressorti par des témoins, aucun massage avant l'arrivée de l'équipe."], ["Antécédents ?", "Aucun connu, il nageait seul."]],
+              [["Évaluation initiale", "Cyanose majeure, pas de respiration, pas de pouls, eau et mousse à la bouche."], ["Examen général", "Hypothermie modérée (34 °C), pas de traumatisme apparent."]],
+              [["gds", "Gaz du sang pendant la RCP", "2 min", 0, { l: [["pH", "6.95", "7.35-7.45", 1], ["PaO2", "30 mmHg", "80-100", 1], ["Lactates", "12 mmol/L", "< 2.0", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "tachy", t: "Tachycardie sinusale, onde T aplatie : séquelle d'hypoxie." }],
+               ["rx", "Radiographie thoracique après RACS", "10 min", 0, "Opacités alvéolaires bilatérales : œdème pulmonaire lésionnel."]],
+              [], ["ACR en asystolie par hypoxie (noyade)", "ACR en FV d'origine coronaire", "ACR par hypothermie pure"], "rea",
+              ["Asystolie : pas de choc ; la cause hypoxique impose de traiter la ventilation.", "Voies aériennes sécurisées et oxygène à 100 %.", "Réanimation après RACS : ventilation protectrice, surveillance neurologique."]),
+              { acls: { rhythm: "asystole", cause: "hypoxie", needs: { adr: 1, cprSec: 90, cause: true, airway: true },
+                echo: "cœur vide, pas d'épanchement, pas de dilatation du ventricule droit : l'hypoxie est la cause la plus probable.",
+                post: { hr: 110, bp: "95/55", spo2: 88, rr: 14, gcs: "4/15" }, postRhythm: "sinus" } }),
+
+            Object.assign(K("acls_fv_hypothermie", "ACR en FV : Hypothermie Sévère (Avalanche)", "Réanimation", "Critique", ["Olivier Dufour", 49, "Homme"],
+              "Retrouvé après 2 heures sous la neige : glacé, inconscient, sans pouls, fibrillation ventriculaire au scope.",
+              [0, "0/0", 0, 0, 24.0, "3/15"], 300,
+              "Hypothermie < 30 °C : 3 chocs maximum puis réchauffement actif (ECMO), pas d'adrénaline. « Nul n'est mort tant qu'il n'est pas chaud et mort ».",
+              [["Circonstances ?", "Pris dans une avalanche, dégagé après 2 heures, voies aériennes dégagées, poche d'air présente."], ["Contexte ?", "Randonneur en bonne santé, pas de traumatisme apparent."]],
+              [["Évaluation initiale", "Corps glacé, rigide, pas de pouls ni de respiration, pupilles non réactives."], ["Température centrale", "24 °C à la sonde œsophagienne."]],
+              [["bio", "Ionogramme, kaliémie", "10 min", 0, { l: [["Kaliémie", "4.1 mmol/L", "3.5-5.0", 0], ["Lactates", "7 mmol/L", "< 2.0", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "brady", t: "Bradycardie sinusale avec ondes J d'Osborn." }],
+               ["gds", "Gaz du sang corrigés", "2 min", 0, { l: [["pH", "7.20", "7.35-7.45", 1], ["PaCO2", "55 mmHg", "35-45", 1]] }]],
+              [], ["ACR en FV sur hypothermie accidentelle sévère", "ACR en FV d'origine coronaire", "ACR par embolie pulmonaire"], "rea",
+              ["Hypothermie < 30 °C : limiter les chocs et réchauffer.", "Pas d'adrénaline avant le réchauffement.", "ECMO ou réchauffement actif : l'arrêt cardiaque hypothermique peut être réversible."]),
+              { acls: { rhythm: "vf", cause: "hypothermie", noAdr: true, maxShocksNoCause: 3, needs: { shocks: 1, cprSec: 120, cause: true, airway: true },
+                echo: "cœur sans épanchement, aucune activité mécanique ; la température est la clé du diagnostic.",
+                post: { hr: 70, bp: "85/50", spo2: 92, rr: 10, gcs: "5/15", temp: 30.5 }, postRhythm: "osborn" } }),
+
+            Object.assign(K("acls_aesp_hypovolemie", "ACR en AESP : Choc Hémorragique (AVP)", "Réanimation", "Critique", ["Lucas Marchand", 29, "Homme"],
+              "Accident de la route : abdomen distendu, pâleur extrême puis arrêt, rythme organisé rapide sans pouls.",
+              [120, "0/0", 0, 0, 35.5, "3/15"], 300,
+              "AESP avec cœur vide : hypovolémie. Transfusion massive, contrôle de l'hémorragie, massage et adrénaline.",
+              [["Circonstances ?", "Voiture contre un arbre à 90 km/h, ceinture non portée, douleur abdominale intense avant l'arrêt."], ["Évolution ?", "Hypotension majeure à l'arrivée du SMUR, perdu la conscience dans le véhicule."]],
+              [["Évaluation initiale", "Pâleur cireuse, pas de pouls, abdomen distendu et tendu, ecchymose en ceinture."], ["Examen traumatologique", "Bassin stable, pas de plaie thoracique, pas de signe de pneumothorax."]],
+              [["gds", "Gaz du sang pendant la RCP", "2 min", 0, { l: [["Hémoglobine", "5.2 g/dL", "13-17", 1], ["Lactates", "15 mmol/L", "< 2.0", 1], ["pH", "6.98", "7.35-7.45", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "tachy", t: "Tachycardie sinusale rapide, repolarisation non spécifique." }],
+               ["scanner", "Scanner corps entier après stabilisation", "25 min", 0, "Rupture de rate de grade V avec hémopéritoine abondant."]],
+              [], ["ACR en AESP par choc hémorragique", "ACR par tamponnade", "ACR par pneumothorax compressif"], "bloc",
+              ["Cœur vide et abdomen tendu après traumatisme : hypovolémie.", "Transfusion massive pendant la RCP.", "Contrôle chirurgical de l'hémorragie dès le RACS."]),
+              { acls: { rhythm: "pea", kind: "sinus", cause: "hypovolemie", needs: { adr: 1, cprSec: 60, cause: true, airway: false },
+                echo: "cavités cardiaques vides et hyperkinétiques, veine cave collabée, épanchement abdominal abondant : hypovolémie.",
+                post: { hr: 130, bp: "80/45", spo2: 92, rr: 18, gcs: "6/15" }, postRhythm: "sinus" } }),
+
+            Object.assign(K("acls_aesp_hyperkaliemie", "ACR en AESP : Hyperkaliémie (Dialysé)", "Réanimation", "Critique", ["Odette Lemaire", 66, "Femme"],
+              "Insuffisante rénale dialysée ayant manqué sa séance : faiblesse puis arrêt, complexes larges et lents sans pouls.",
+              [30, "0/0", 0, 0, 36.4, "3/15"], 300,
+              "AESP avec QRS larges chez un dialysé : hyperkaliémie. Calcium IV en urgence, insuline-glucose, massage et adrénaline.",
+              [["Contexte ?", "Hémodialysée 3 fois par semaine, a manqué deux séances et mangé beaucoup de fruits secs."], ["Dernières heures ?", "Faiblesse musculaire diffuse, palpitations puis perte de connaissance."]],
+              [["Évaluation initiale", "Inconsciente, pas de pouls, fistule artério-veineuse du bras gauche."], ["Examen général", "Œdèmes des jambes, pas de traumatisme, oligurie ancienne."]],
+              [["bio", "Gaz du sang + kaliémie", "2 min", 0, { l: [["Kaliémie", "8.1 mmol/L", "3.5-5.0", 1], ["pH", "7.02", "7.35-7.45", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "brady", t: "Ondes T amples et pointues, QRS élargis, disparition des ondes P : hyperkaliémie." }],
+               ["rx", "Radiographie thoracique après RACS", "10 min", 0, "Surcharge pulmonaire modérée."]],
+              [], ["ACR en AESP sur hyperkaliémie sévère", "ACR en FV d'origine coronaire", "ACR par embolie pulmonaire"], "nephro",
+              ["Dialysé, séances manquées, QRS larges : hyperkaliémie jusqu'à preuve du contraire.", "Calcium IV et insuline-glucose pendant la RCP.", "Dialyse en urgence après le RACS."]),
+              { acls: { rhythm: "pea", kind: "hyperk", cause: "metabolique", needs: { adr: 1, cprSec: 60, cause: true, airway: false },
+                echo: "cœur sans épanchement, ventricule gauche hypokinétique, pas de dilatation des cavités droites.",
+                post: { hr: 70, bp: "95/55", spo2: 92, rr: 12, gcs: "6/15" }, postRhythm: "hyperk" } }),
+
+            Object.assign(K("acls_aesp_pneumothorax", "ACR en AESP : Pneumothorax Compressif", "Réanimation", "Critique", ["Ethan Rousseau", 24, "Homme"],
+              "Accident de moto avec choc thoracique droit : détresse respiratoire puis arrêt, rythme organisé sans pouls.",
+              [40, "0/0", 0, 0, 36.2, "3/15"], 300,
+              "AESP post-traumatique : penser pneumothorax compressif. Décompression à l'aiguille immédiate, massage, adrénaline.",
+              [["Mécanisme ?", "Chute de moto à 70 km/h, choc thoracique droit, dyspnée majeure avant l'arrêt."], ["Évolution ?", "Détresse respiratoire croissante, cyanose, malaise brutal."]],
+              [["Évaluation initiale", "Hémithorax droit distendu et immobile, emphysème sous-cutané, jugulaires turgescentes, pas de pouls."], ["Auscultation", "Murmure vésiculaire aboli à droite, trachée déviée vers la gauche."]],
+              [["gds", "Gaz du sang pendant la RCP", "2 min", 0, { l: [["PaO2", "30 mmHg", "80-100", 1], ["PaCO2", "90 mmHg", "35-45", 1], ["pH", "6.95", "7.35-7.45", 1]] }],
+               ["ecg_post", "ECG 12 dérivations après RACS", "2 min", 1, { e: "tachy", t: "Tachycardie sinusale, microvoltage." }],
+               ["rx", "Radiographie thoracique après RACS", "10 min", 0, "Pneumothorax droit total drainé, fractures costales C4-C6."]],
+              [], ["ACR en AESP par pneumothorax compressif", "ACR par tamponnade", "ACR par choc hémorragique"], "rea",
+              ["Contexte traumatique et asymétrie thoracique : pneumothorax compressif.", "Exsufflation à l'aiguille puis drainage pendant la RCP.", "Réanimation après RACS : drain thoracique, recherche de lésions associées."]),
+              { acls: { rhythm: "pea", kind: "wide", cause: "pneumothorax", needs: { adr: 1, cprSec: 60, cause: true, airway: false },
+                echo: "absence de glissement pleural à droite avec point poumon, cœur de petite taille.",
+                post: { hr: 115, bp: "90/55", spo2: 90, rr: 16, gcs: "6/15" }, postRhythm: "sinus" } })
+        );
+
+        /* Le cas FV d'origine (lot précédent) passe en mode réanimation ERC */
+        function attachAcrFv() {
+            const c = CLINICAL_CASES.find(x => x.id === 'acr_fv');
+            if (!c) return;
+            c.category = 'Réanimation';
+            c.acls = { rhythm: 'vf', cause: 'thrombose_coro', needs: { shocks: 3, adr: 1, amio: 1, cprSec: 120, cause: false, airway: false },
+                echo: 'hypokinésie inférieure étendue, pas d\'épanchement péricardique, ventricule droit non dilaté.',
+                post: { hr: 95, bp: '90/55', spo2: 90, rr: 12, gcs: '5/15' }, postRhythm: 'stemi' };
+            c.availableExams.forEach(e => { if (e.id === 'scope' || e.id === 'eto') e.isKey = false; });
+            c.actions = { gestures: [], meds: [] };
+            c.hint = 'FV : massage immédiat, choc dès que possible (150-200 J), puis adrénaline et amiodarone après le 3e choc.';
+        }
+
         /* ==========================================================================
            MOTEUR DE JEU
            ========================================================================== */
@@ -3221,7 +3785,7 @@
             ophtalmo_orl: 'Ophtalmologie / ORL en Urgence', brules: 'Centre de Traitement des Brûlés', nephro: 'Néphrologie / Hémodialyse',
             med: 'Hospitalisation Médecine', home: 'Retour à Domicile avec Ordonnance'
         };
-        const CATEGORY_LABELS = { Allergologie: 'Immuno/Allergie', Infectiologie: 'Infectio/Réa', 'Gastro-hépatologie': 'Gastro/Hépato', 'Néphro-Urologie': 'Néphro/Uro' };
+        const CATEGORY_LABELS = { Allergologie: 'Immuno/Allergie', Infectiologie: 'Infectio/Réa', 'Gastro-hépatologie': 'Gastro/Hépato', 'Néphro-Urologie': 'Néphro/Uro', 'Réanimation': 'Réa / ACR' };
         const LEVELS = [
             { min: 0, name: 'Externe' }, { min: 1500, name: 'Interne' }, { min: 3000, name: 'Urgentiste Junior' },
             { min: 5000, name: 'Urgentiste Confirmé' }, { min: 8000, name: 'Chef de Service' }
@@ -3232,7 +3796,8 @@
             askedQ: [], doneExam: [], prescribedExams: [], administeredActions: [],
             harmful: [], log: [], hintUsed: false, vitals: null,
             score: 1250, best: {}, activeCategory: 'all',
-            name: '', records: {}, stats: { plays: 0, timeSum: 0, harm: 0 }
+            name: '', records: {}, stats: { plays: 0, timeSum: 0, harm: 0, deaths: 0 },
+            dying: false, deathCause: '', deathTime: ''
         };
 
         /* ---------- Persistance (localStorage) ---------- */
@@ -3243,26 +3808,31 @@
                     const p = JSON.parse(raw);
                     currentState.score = p.score ?? 1250; currentState.best = p.best || {};
                     currentState.name = p.name || ''; currentState.records = p.records || {};
-                    currentState.stats = { plays: 0, timeSum: 0, harm: 0, ...(p.stats || {}) };
+                    currentState.stats = { plays: 0, timeSum: 0, harm: 0, deaths: 0, ...(p.stats || {}) };
                 }
                 if (localStorage.getItem('medcase_theme') === 'dark') setTheme(true);
+                if (localStorage.getItem('medcase_sound') === 'off') Sound.enabled = false;
             } catch (e) { /* stockage indisponible */ }
         }
         function saveProgress() {
             try { localStorage.setItem('medcase_progress', JSON.stringify({ score: currentState.score, best: currentState.best, name: currentState.name, records: currentState.records, stats: currentState.stats })); } catch (e) {}
         }
 
+        let TREAT_TAB_HTML = '', treatIsAcls = false;
         window.onload = function () {
+            TREAT_TAB_HTML = document.getElementById('tab-content-treatments').innerHTML;
             applyEnrichments();
             if (typeof EXTRA_CASES !== 'undefined') CLINICAL_CASES.push(...EXTRA_CASES);
+            if (typeof attachAcrFv === 'function') attachAcrFv();
             loadProgress();
+            updateSoundButton();
             initPWA();
             buildFilters();
             renderCasesGrid();
             updateUserScoreDisplay();
             const cats = new Set(CLINICAL_CASES.map(c => c.category)).size;
             document.getElementById('welcome-text').innerText =
-                `Prenez en charge ${CLINICAL_CASES.length} cas cliniques critiques répartis dans ${cats} spécialités : interrogez, examinez, prescrivez, traitez et orientez avant l'expiration du chrono. Chaque question et chaque examen consomme du temps ; les mauvais gestes aggravent l'état du patient.`;
+                `Prenez en charge ${CLINICAL_CASES.length} cas cliniques, de la médecine générale aux urgences vitales, répartis dans ${cats} spécialités : interrogez, examinez, prescrivez, traitez et orientez avant l'expiration du chrono. Chaque question et chaque examen consomme du temps ; les mauvais gestes aggravent l'état du patient. Activez le son pour entendre le moniteur cardiaque.`;
         };
 
         function initPWA() {
@@ -3280,6 +3850,255 @@
             });
         }
 
+
+        /* ==========================================================================
+           SON DU MONITEUR (Web Audio) : bip synchronisé sur la FC, hauteur liée à la SpO2,
+           alarme sur constantes critiques, tonalité continue en arrêt cardiaque
+           ========================================================================== */
+        /* ==========================================================================
+           MONITEUR EN DIRECT : tracé ECG (dérivation II) + pléthysmogramme de SpO2
+           Le tracé suit le rythme, la FC et la PA du patient ; le bip retentit à chaque QRS.
+           ========================================================================== */
+        const RHYTHM_RULES = {
+            tv_instable: { start: 'vt', on: { choc: 'sinus' } },
+            fa_instable: { start: 'af', on: { cee: 'sinus' } },
+            bav_complet: { start: 'avblock', on: { ees: 'paced' } },
+            hyperkaliemie: { start: 'hyperk', on: { calcium: 'sinus' } },
+            torsades: { start: 'torsades', on: { mg: 'sinus' } },
+            stemi_ant: { start: 'stemi' }, choc_cardiogenique: { start: 'stemi' }, nstemi: { start: 'stdep' },
+            oap: { start: 'af' }, ischemie_mesenterique: { start: 'af' }, ischemie_membre: { start: 'af' }, avc_isch: { start: 'af' }, digoxine: { start: 'af' },
+            hypothermie: { start: 'osborn' }, coma_myxoedemateux: { start: 'lowvolt' }, tamponnade: { start: 'lowvolt' },
+            intox_tricycliques: { start: 'wide' }, intox_betabloquants: { start: 'wide' }
+        };
+        const WIDE_KINDS = ['wide', 'avblock', 'hyperk', 'paced', 'agonal'];
+
+        const Monitor = {
+            cE: null, cP: null, gE: null, gP: null, W: 600, HE: 66, HP: 46,
+            x: 0, t: 0, last: 0, raf: null, running: false, labelAt: 0,
+            rhythm: 'sinus', beats: [], pBeats: [], lastSig: 0, flatUntil: 0, spikeUntil: 0, prevE: null, prevP: null,
+            init() {
+                this.cE = document.getElementById('mon-ecg'); this.cP = document.getElementById('mon-pleth');
+                if (!this.cE || !this.cP) return false;
+                const dpr = window.devicePixelRatio || 1, w = Math.max(240, this.cE.clientWidth || 600);
+                [[this.cE, this.HE], [this.cP, this.HP]].forEach(([c, h]) => {
+                    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + 'px';
+                    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round';
+                });
+                this.gE = this.cE.getContext('2d'); this.gP = this.cP.getContext('2d');
+                this.gE.strokeStyle = '#34d399'; this.gP.strokeStyle = '#22d3ee';
+                this.W = w;
+                return true;
+            },
+            start(rhythm) {
+                if (!this.init()) return;
+                this.running = true; this.x = 0; this.prevE = this.prevP = null;
+                this.setRhythm(rhythm || 'sinus');
+                cancelAnimationFrame(this.raf);
+                this.last = performance.now();
+                const loop = (now) => { if (!this.running) return; this.frame(now); this.raf = requestAnimationFrame(loop); };
+                this.raf = requestAnimationFrame(loop);
+            },
+            stop() { this.running = false; cancelAnimationFrame(this.raf); },
+            setRhythm(r) { this.rhythm = r; this.beats = []; this.pBeats = []; this.lastSig = this.t; },
+            flash() { this.spikeUntil = this.t + 0.06; this.flatUntil = this.t + 1.3; },
+            rhythmNow() {
+                const v = currentState.vitals;
+                if (!v) return 'sinus';
+                if (this.rhythm === 'vf') return 'vf';
+                if (this.rhythm === 'pea') return 'pea';
+                if (v.hr <= 0) return 'asystole';
+                return this.rhythm;
+            },
+            g(x, mu, s) { const z = (x - mu) / s; return Math.exp(-0.5 * z * z); },
+            ensureBeats(t, hr, kind) {
+                const rr = 60 / Math.max(15, hr);
+                let last = this.beats[this.beats.length - 1], guard = 0;
+                while ((last === undefined || last < t + 0.5) && guard++ < 6) {
+                    const jit = kind === 'af' ? 0.55 + Math.random() : kind === 'agonal' ? 0.8 + Math.random() * 0.8 : 0.985 + Math.random() * 0.03;
+                    last = last === undefined ? t + 0.35 : last + rr * jit;
+                    this.beats.push(last);
+                }
+                while (this.beats.length > 4 && this.beats[1] < t - 0.7) this.beats.shift();
+            },
+            ensureP(t) {
+                let last = this.pBeats[this.pBeats.length - 1], guard = 0;
+                while ((last === undefined || last < t + 0.5) && guard++ < 6) { last = last === undefined ? t + 0.1 : last + 0.8; this.pBeats.push(last); }
+                while (this.pBeats.length > 3 && this.pBeats[1] < t - 0.7) this.pBeats.shift();
+            },
+            shape(d, kind, rr) {
+                const g = this.g, f = Math.max(0.65, Math.min(1.25, Math.sqrt(rr / 0.85)));
+                const wide = WIDE_KINDS.includes(kind);
+                let y = 0;
+                if (!['af', 'avblock', 'agonal', 'paced', 'hyperk'].includes(kind)) y += 0.13 * g(d, -0.16 * f, 0.028 * f);
+                if (wide) y += 0.95 * g(d, 0, 0.035) - 0.15 * g(d, 0.07, 0.03);
+                else y += -0.12 * g(d, -0.03 * f, 0.011) + 1.0 * g(d, 0, 0.012) - 0.24 * g(d, 0.03 * f, 0.012);
+                if (kind === 'stemi') y += 0.45 * g(d, 0.16 * f, 0.10 * f) + 0.15 * g(d, 0.30 * f, 0.07);
+                else if (kind === 'stdep') y += -0.22 * g(d, 0.14 * f, 0.09 * f) + 0.12 * g(d, 0.34 * f, 0.07);
+                else if (kind === 'hyperk') y += 0.8 * g(d, 0.22 * f, 0.045 * f);
+                else if (wide) y += -0.25 * g(d, 0.26, 0.07);
+                else y += 0.28 * g(d, 0.27 * f, 0.055 * f);
+                if (kind === 'osborn') y += 0.35 * g(d, 0.055, 0.022);
+                if (kind === 'paced') y += 1.3 * g(d, -0.045, 0.003);
+                return y;
+            },
+            beatWave(t, kind, v) {
+                const hr = Math.max(15, v.hr || 50);
+                this.ensureBeats(t, hr, kind);
+                const rr = 60 / hr;
+                let y = 0;
+                for (const b of this.beats) { const d = t - b; if (d > -0.4 && d < 0.7) y += this.shape(d, kind, rr); }
+                if (kind === 'avblock') { this.ensureP(t); for (const p of this.pBeats) { const d = t - p; if (d > -0.2 && d < 0.2) y += 0.14 * this.g(d, 0, 0.03); } }
+                y += kind === 'af' ? 0.035 * Math.sin(t * 38) + 0.03 * Math.sin(t * 51 + 1) + 0.02 * Math.sin(t * 23) : 0.008 * Math.sin(t * 9.1);
+                if (kind === 'osborn') y += 0.03 * Math.sin(t * 60);
+                if (kind === 'lowvolt') y *= 0.35;
+                for (const b of this.beats) if (b <= t && b > this.lastSig) { this.lastSig = b; this.onBeat(); }
+                return y;
+            },
+            onBeat() {
+                const A = currentState.acls;
+                if (currentState.dying || (A && A.cpr && !A.rosc)) return;
+                Sound.beat();
+            },
+            ecgAt(t) {
+                const cs = currentState, v = cs.vitals, A = cs.acls, r = this.rhythmNow();
+                if (t < this.spikeUntil) return Math.sin(t * 90) > 0 ? 2.4 : -1.7;
+                if (t < this.flatUntil) return 0.01 * Math.sin(t * 5);
+                if (A && A.cpr && !A.rosc) { const s = Math.sin(2 * Math.PI * 1.83 * t); return 1.15 * Math.sign(s) * Math.pow(Math.abs(s), 0.7); }
+                switch (r) {
+                    case 'asystole': return 0.02 * Math.sin(t * 1.3) + 0.008 * Math.sin(t * 11);
+                    case 'vf': return (0.7 + 0.3 * Math.sin(2 * Math.PI * 0.35 * t)) * (0.5 * Math.sin(2 * Math.PI * 4.2 * t + 1.8 * Math.sin(2 * Math.PI * 0.9 * t)) + 0.3 * Math.sin(2 * Math.PI * 6.3 * t + 0.5) + 0.2 * Math.sin(2 * Math.PI * 2.7 * t));
+                    case 'vt': { const f = Math.max(2.2, v.hr / 60); return 0.85 * Math.sin(2 * Math.PI * f * t) + 0.2 * Math.sin(4 * Math.PI * f * t + 0.6); }
+                    case 'torsades': return Math.sin(2 * Math.PI * 4.6 * t) * (0.25 + 0.75 * Math.abs(Math.sin(2 * Math.PI * 0.55 * t)));
+                    case 'pea': return this.beatWave(t, (A && A.kind) || 'wide', v);
+                    default: return this.beatWave(t, r, v);
+                }
+            },
+            plethAt(t) {
+                const cs = currentState, v = cs.vitals, A = cs.acls, r = this.rhythmNow(), sys = parseBP(v.bp)[0];
+                if (A && A.cpr && !A.rosc) return 0.22 * Math.max(0, Math.sin(2 * Math.PI * 1.83 * t));
+                if ((A && !A.rosc) || v.spo2 <= 0 || sys <= 0 || r === 'asystole' || r === 'vf' || r === 'pea') return 0.01 * Math.sin(t * 3);
+                if (r === 'vt' || r === 'torsades') { this.ensureBeats(t, v.hr, 'sinus'); }
+                const amp = Math.max(0.12, Math.min(1.15, sys / 110));
+                let y = 0;
+                for (const b of this.beats) { const d = t - (b + 0.2); if (d > -0.2 && d < 0.8) y += this.g(d, 0.12, 0.075) + 0.28 * this.g(d, 0.36, 0.07); }
+                return y * amp;
+            },
+            updateLabel() {
+                const el = document.getElementById('mon-alarm'); if (!el) return;
+                const v = currentState.vitals, r = this.rhythmNow(), cs = currentState;
+                let txt = '';
+                if (r === 'asystole') txt = 'ASYSTOLIE';
+                else if (r === 'vf') txt = 'FIBRILLATION V.';
+                else if (v.spo2 > 0 && v.spo2 < 90) txt = 'SpO2 BASSE';
+                else if (v.hr > 150) txt = 'FC ÉLEVÉE';
+                el.textContent = txt;
+                el.classList.toggle('hidden', !txt);
+                const label = document.getElementById('mon-rate');
+                if (label) label.textContent = cs.acls && !cs.acls.rosc ? '' : `${Math.round(v.hr)} /min`;
+            },
+            frame(now) {
+                const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
+                const pps = 110, step = 1 / pps;
+                this.acc = (this.acc || 0) + dt * pps;
+                const n = Math.floor(this.acc); this.acc -= n;
+                const HE = this.HE, HP = this.HP;
+                for (let i = 0; i < n; i++) {
+                    this.t += step;
+                    const ye = Math.max(1, Math.min(HE - 1, HE * 0.62 - this.ecgAt(this.t) * HE * 0.40));
+                    const yp = Math.max(1, Math.min(HP - 1, HP * 0.82 - this.plethAt(this.t) * HP * 0.66));
+                    const x = this.x;
+                    this.gE.clearRect(x, 0, 14, HE); this.gP.clearRect(x, 0, 14, HP);
+                    if (this.prevE !== null && x > 0) {
+                        this.gE.beginPath(); this.gE.moveTo(x - 1, this.prevE); this.gE.lineTo(x, ye); this.gE.stroke();
+                        this.gP.beginPath(); this.gP.moveTo(x - 1, this.prevP); this.gP.lineTo(x, yp); this.gP.stroke();
+                    }
+                    this.prevE = ye; this.prevP = yp;
+                    this.x += 1;
+                    if (this.x >= this.W) { this.x = 0; this.prevE = this.prevP = null; }
+                }
+                if (now - this.labelAt > 300) { this.labelAt = now; this.updateLabel(); }
+            }
+        };
+        window.addEventListener('resize', () => { if (Monitor.running) { Monitor.init(); Monitor.x = 0; Monitor.prevE = Monitor.prevP = null; } });
+
+        /* ---------- Moteur sonore : bip sur chaque QRS, alarmes, métronome de massage, défibrillateur ---------- */
+        const Sound = {
+            ctx: null, enabled: true, timer: null, flat: null, lastAlarm: 0, metro: null,
+            init() {
+                if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false; this.ctx = new AC(); }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                return true;
+            },
+            tone(freq, dur, vol, type = 'sine', delay = 0) {
+                const c = this.ctx, t = c.currentTime + delay;
+                const o = c.createOscillator(), g = c.createGain();
+                o.type = type; o.frequency.value = freq;
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                o.connect(g); g.connect(c.destination);
+                o.start(t); o.stop(t + dur + 0.02);
+            },
+            startFlat(vol = 0.05) {
+                if (this.flat) return;
+                const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+                o.type = 'sine'; o.frequency.value = 1000; g.gain.value = vol;
+                o.connect(g); g.connect(c.destination); o.start();
+                this.flat = { o, g };
+            },
+            stopFlat() { if (this.flat) { try { this.flat.o.stop(); } catch (e) {} this.flat = null; } },
+            beat() {
+                const cs = currentState;
+                if (!this.enabled || cs.dying || !cs.vitals || !this.init()) return;
+                this.tone(520 + Math.max(0, Math.min(30, cs.vitals.spo2 - 70)) * 14, 0.09, 0.14);   // SpO2 basse = son plus grave
+            },
+            ping() { if (this.enabled && this.init()) { this.tone(880, 0.12, 0.09); this.tone(1320, 0.18, 0.09, 'sine', 0.12); } },
+            click() { this.tone(1700, 0.025, 0.09, 'square'); },
+            charge() {
+                if (!this.enabled || !this.init()) return;
+                const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+                o.type = 'sawtooth'; o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(1500, t + 1.0);
+                g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.1);
+                g.gain.setValueAtTime(0.05, t + 0.95); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
+                o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 1.1);
+            },
+            shock() { if (this.enabled && this.init()) { this.tone(70, 0.25, 0.25, 'sawtooth'); this.tone(140, 0.12, 0.15, 'square'); } },
+            alarm() { if (this.enabled && this.init()) [0, 0.14, 0.28].forEach(d => this.tone(1180, 0.07, 0.05, 'square', d)); },
+            deathBeep(freq, vol) { if (this.enabled && this.init()) this.tone(freq, 0.16, vol, 'sine'); },
+            deathAlarm() { if (!this.enabled || !this.init()) return; [0.18, 0.32, 0.46].forEach(d => this.tone(1180, 0.08, 0.07, 'square', d)); },
+            deathFlat() { if (this.enabled && this.init()) this.startFlat(0.09); },
+            startMetro() { if (this.metro || !this.enabled) return; this.metro = setInterval(() => { if (this.init()) this.click(); }, 545); },
+            stopMetro() { clearInterval(this.metro); this.metro = null; },
+            watch() {
+                const cs = currentState;
+                if (!this.enabled || cs.dying || !cs.vitals || document.getElementById('screen-case').classList.contains('hidden')) return this.stop();
+                const v = cs.vitals, r = Monitor.rhythmNow(), now = Date.now();
+                if (r === 'asystole') this.startFlat();
+                else {
+                    this.stopFlat();
+                    const critical = v.hr > 0 && r !== 'pea' && (v.spo2 < 90 || v.hr > 150 || v.hr < 45);
+                    if (((r === 'vf' || r === 'pea') && now - this.lastAlarm > 1500) || (critical && now - this.lastAlarm > 2600)) { this.lastAlarm = now; this.alarm(); }
+                }
+                this.timer = setTimeout(() => this.watch(), 600);
+            },
+            start() { this.stop(); if (!this.enabled || !this.init()) return; this.watch(); },
+            stop() { clearTimeout(this.timer); this.timer = null; this.stopFlat(); this.stopMetro(); }
+        };
+        function updateSoundButton() {
+            const ic = document.getElementById('sound-icon');
+            if (ic) ic.className = Sound.enabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+            const b = document.getElementById('sound-btn');
+            if (b) b.setAttribute('aria-pressed', String(Sound.enabled));
+        }
+        function toggleSound() {
+            Sound.enabled = !Sound.enabled;
+            try { localStorage.setItem('medcase_sound', Sound.enabled ? 'on' : 'off'); } catch (e) {}
+            updateSoundButton();
+            if (!Sound.enabled) Sound.stop();
+            else if (!document.getElementById('screen-case').classList.contains('hidden')) { Sound.start(); if (currentState.acls && currentState.acls.cpr && !currentState.acls.rosc) Sound.startMetro(); }
+        }
+        document.addEventListener('visibilitychange', () => { if (document.hidden) Sound.stop(); else if (!document.getElementById('screen-case').classList.contains('hidden')) Sound.start(); });
+
         /* ---------- Thème, écrans, notifications ---------- */
         function setTheme(dark) {
             document.documentElement.classList.toggle('dark', dark);
@@ -3291,7 +4110,7 @@
             try { localStorage.setItem('medcase_theme', dark ? 'dark' : 'light'); } catch (e) {}
         }
         function showScreen(screenId) {
-            if (screenId !== 'case') clearInterval(currentState.timerInterval);
+            if (screenId !== 'case') { clearInterval(currentState.timerInterval); Sound.stop(); Monitor.stop(); }
             ['dashboard', 'case', 'debrief', 'profile'].forEach(s => document.getElementById(`screen-${s}`).classList.add('hidden'));
             document.getElementById(`screen-${screenId}`).classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3369,7 +4188,8 @@
             if (!caseData) return;
             const cs = currentState;
             cs.activeCase = JSON.parse(JSON.stringify(caseData));
-            Object.assign(cs, { askedQ: [], doneExam: [], prescribedExams: [], administeredActions: [], harmful: [], log: [], hintUsed: false, tick: 0 });
+            Object.assign(cs, { askedQ: [], doneExam: [], prescribedExams: [], administeredActions: [], harmful: [], log: [], hintUsed: false, tick: 0, dying: false, deathCause: '', deathTime: '', pendingExams: [], readyExams: [], acls: null });
+            document.getElementById('death-overlay').classList.add('hidden');
             cs.timeRemaining = caseData.timerSeconds;
             cs.vitals = { ...caseData.patient.vitals };
             cs.activeCase.diagnoses.sort(() => Math.random() - 0.5);
@@ -3379,7 +4199,7 @@
             document.getElementById('patient-chief-complaint').innerHTML = `<i class="fa-solid fa-notes-medical text-sky-500 mr-1"></i> Motif : ${caseData.patient.complaint}`;
             document.getElementById('patient-avatar').innerText = caseData.patient.avatar;
             document.getElementById('case-triage-badge').innerText = `${caseData.difficulty} · ${CATEGORY_LABELS[caseData.category] || caseData.category}`;
-            document.getElementById('badge-exam-count').innerText = '0';
+            document.getElementById('badge-exam-count').innerText = '0/0';
             document.getElementById('hint-btn').disabled = false;
             document.getElementById('hint-btn').classList.remove('opacity-40');
             document.getElementById('select-orientation').value = '';
@@ -3390,10 +4210,23 @@
                 </div>`;
 
             renderVitals();
+            setTreatmentsMode(!!cs.activeCase.acls);
             renderAnamnesisTab(); renderExamsTab(); renderTreatmentsTab(); renderTreatmentLog(); renderDecisionTab();
             switchCaseTab('anamnesis');
             showScreen('case');
             startTimer();
+            Sound.start();
+            const rule = RHYTHM_RULES[caseData.id];
+            Monitor.start(rule ? rule.start : 'sinus');
+            if (cs.activeCase.acls) { aclsInit(cs.activeCase); renderAclsPanel(); switchCaseTab('treatments'); }
+        }
+        function setTreatmentsMode(isAcls) {
+            const tab = document.getElementById('tab-treatments');
+            if (isAcls) { tab.innerHTML = '<i class="fa-solid fa-heart-pulse"></i> 3. Réanimation (ERC)'; treatIsAcls = true; }
+            else {
+                if (treatIsAcls) { document.getElementById('tab-content-treatments').innerHTML = TREAT_TAB_HTML; treatIsAcls = false; }
+                tab.innerHTML = '<i class="fa-solid fa-syringe"></i> 3. Traitements & Gestes';
+            }
         }
 
         /* ---------- Constantes vitales ---------- */
@@ -3425,6 +4258,7 @@
                 else if (k === 'rr') { v.rr = clamp(v.rr + val, 0, 60); changed.push(k); }
             });
             renderVitals(changed);
+            checkVitalDeath();
         }
 
         /* ---------- Chrono ---------- */
@@ -3435,16 +4269,16 @@
                 currentState.timeRemaining--;
                 currentState.tick++;
                 if (currentState.tick % 15 === 0) deteriorate();
+                aclsTick();
+                checkPendingExams();
                 updateTimerDisplay();
                 checkTimeout();
             }, 1000);
         }
         function checkTimeout() {
-            if (currentState.timeRemaining <= 0) {
+            if (currentState.timeRemaining <= 0 && !currentState.dying) {
                 currentState.timeRemaining = 0;
-                clearInterval(currentState.timerInterval);
-                toast('TEMPS ÉCOULÉ : dégradation fatale du patient.', 'danger');
-                submitCaseDecision(true);
+                patientDeath('timeout');
             }
         }
         function spendTime(sec) {
@@ -3467,14 +4301,70 @@
             if (v.hr === 0) return; // arrêt cardiaque : pas d'évolution automatique
             const missing = keyActions().filter(a => !currentState.administeredActions.includes(a.id)).length;
             if (missing === 0) return;
-            v.spo2 = Math.max(60, v.spo2 - 1);
+            const late = currentState.timeRemaining < currentState.activeCase.timerSeconds * 0.3 ? 2 : 1;   // l'aggravation s'accélère en fin de chrono
+            v.spo2 = Math.max(40, v.spo2 - late);
             v.hr = Math.min(180, v.hr + 1);
             const [s, d] = parseBP(v.bp);
-            v.bp = `${Math.max(45, s - 2)}/${Math.max(25, d - 1)}`;
+            v.bp = `${Math.max(30, s - 2 * late)}/${Math.max(15, d - late)}`;
             renderVitals();
+            checkVitalDeath();
+        }
+        function checkVitalDeath() {
+            const cs = currentState, v = cs.vitals;
+            if (cs.dying || !v || v.hr <= 0) return;
+            if (parseBP(v.bp)[0] <= 40 || v.spo2 <= 55) patientDeath('collapse');
+        }
+
+        /* ---------- Décès du patient : phase agonique, asystolie, tonalité continue ---------- */
+        const DEATH_TEXT = {
+            timeout: "Le délai de prise en charge est dépassé : le patient a fait un arrêt cardio-respiratoire irréversible.",
+            collapse: "Défaillance hémodynamique ou respiratoire : le patient n'a pas survécu à l'aggravation."
+        };
+        function patientDeath(cause) {
+            const cs = currentState;
+            if (cs.dying) return;
+            cs.dying = true; cs.deathCause = cause; cs.deathTime = elapsedStr();
+            clearInterval(cs.timerInterval);
+            Sound.stop();
+            if (cs.acls) cs.acls.cpr = false;
+            Monitor.setRhythm('agonal');
+            const ov = document.getElementById('death-overlay');
+            document.getElementById('death-card').classList.add('hidden');
+            ov.style.background = 'rgba(69,10,10,0.28)';
+            ov.classList.remove('hidden');
+            const v = cs.vitals;
+            // phase agonique : FC, SpO2 et PA s'effondrent, bips de plus en plus lents et graves
+            [[0, 40, 48, '52/28'], [900, 30, 36, '40/20'], [2000, 22, 26, '30/14'], [3300, 14, 14, '20/8'], [4800, 8, 6, '10/4']].forEach(([t, hr, spo2, bp], i) => {
+                setTimeout(() => {
+                    if (!cs.dying) return;
+                    v.hr = hr; v.spo2 = Math.min(v.spo2, spo2); v.bp = bp; v.rr = Math.max(0, Math.round(v.rr * 0.6));
+                    if (i >= 2) v.gcs = '3/15';
+                    renderVitals(['hr', 'bp', 'spo2']);
+                    Sound.deathBeep(540 - i * 45, 0.14 - i * 0.02);
+                    if (i === 0 || i === 2) Sound.deathAlarm();
+                }, t);
+            });
+            // asystolie : plus aucun bip, tonalité continue
+            setTimeout(() => {
+                if (!cs.dying) return;
+                Object.assign(v, { hr: 0, bp: '0/0', spo2: 0, rr: 0, gcs: '3/15' });
+                Monitor.setRhythm('asystole');
+                renderVitals(['hr', 'bp', 'spo2']);
+                Sound.deathFlat();
+                document.getElementById('death-time').innerText = `Heure du décès : ${cs.deathTime}`;
+                document.getElementById('death-text').innerText = DEATH_TEXT[cause] || DEATH_TEXT.collapse;
+                ov.style.background = 'rgba(0,0,0,0.7)';
+                document.getElementById('death-card').classList.remove('hidden');
+            }, 5800);
+        }
+        function finishAfterDeath() {
+            document.getElementById('death-overlay').classList.add('hidden');
+            Sound.stop();
+            currentState.dying = false;
+            submitCaseDecision(true);
         }
         function useHint() {
-            if (currentState.hintUsed || !currentState.activeCase) return;
+            if (currentState.dying || currentState.hintUsed || !currentState.activeCase) return;
             currentState.hintUsed = true;
             const btn = document.getElementById('hint-btn');
             btn.disabled = true; btn.classList.add('opacity-40');
@@ -3522,8 +4412,8 @@
                     <span class="text-[10px] text-slate-400 shrink-0">−${PE_COST} s</span></button>`;
             }).join('');
         }
-        function askQuestion(i) { if (!currentState.askedQ.includes(i)) { currentState.askedQ.push(i); renderAnamnesisTab(); spendTime(Q_COST); } }
-        function doPhysical(i) { if (!currentState.doneExam.includes(i)) { currentState.doneExam.push(i); renderAnamnesisTab(); spendTime(PE_COST); } }
+        function askQuestion(i) { if (!currentState.dying && !currentState.askedQ.includes(i)) { currentState.askedQ.push(i); renderAnamnesisTab(); spendTime(Q_COST); } }
+        function doPhysical(i) { if (!currentState.dying && !currentState.doneExam.includes(i)) { currentState.doneExam.push(i); renderAnamnesisTab(); spendTime(PE_COST); } }
 
         /* ---------- Onglet 2 : examens ---------- */
         function examCost(e) {
@@ -3541,20 +4431,32 @@
                         ${done ? '<i class="fa-solid fa-check text-emerald-500 text-xs"></i>' : '<i class="fa-solid fa-plus text-sky-500 text-xs"></i>'}
                     </div>
                     <div class="flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Délai : ${e.delay} · −${examCost(e)} s</span>
+                        <span>Résultat en ~${examCost(e)} s</span>
                         <span class="font-semibold text-amber-500">${e.cost}</span>
                     </div>
                 </button>`;
             }).join('');
         }
+        function updateExamBadge() { const cs = currentState; document.getElementById('badge-exam-count').innerText = `${cs.readyExams.length}/${cs.prescribedExams.length}`; }
         function prescribeExam(examId) {
-            if (currentState.prescribedExams.includes(examId)) return;
-            const exam = currentState.activeCase.availableExams.find(e => e.id === examId);
-            currentState.prescribedExams.push(examId);
-            document.getElementById('badge-exam-count').innerText = currentState.prescribedExams.length;
-            renderExamsTab();
-            renderExamResults();
-            spendTime(examCost(exam));
+            const cs = currentState;
+            if (cs.dying || cs.prescribedExams.includes(examId)) return;
+            const exam = cs.activeCase.availableExams.find(e => e.id === examId);
+            cs.prescribedExams.push(examId);
+            cs.pendingExams.push({ id: examId, start: cs.timeRemaining, readyAt: cs.timeRemaining - examCost(exam) });
+            updateExamBadge(); renderExamsTab(); renderExamResults();
+        }
+        function checkPendingExams() {
+            const cs = currentState;
+            if (!cs.pendingExams || !cs.pendingExams.length) return;
+            const arrived = cs.pendingExams.filter(p => cs.timeRemaining <= p.readyAt);
+            arrived.forEach(p => {
+                cs.readyExams.push(p.id);
+                const e = cs.activeCase.availableExams.find(x => x.id === p.id);
+                toast(`Résultat disponible : ${e.name}`, 'success'); Sound.ping();
+            });
+            cs.pendingExams = cs.pendingExams.filter(p => !arrived.includes(p));
+            updateExamBadge(); renderExamResults();
         }
 
         /* Tracés ECG générés */
@@ -3590,9 +4492,20 @@
         function renderExamResults() {
             const container = document.getElementById('exam-results-container');
             if (currentState.prescribedExams.length === 0) return;
-            container.innerHTML = [...currentState.prescribedExams].reverse().map(id => {
-                const res = currentState.activeCase.examResults[id];
+            const cs = currentState;
+            container.innerHTML = [...cs.prescribedExams].reverse().map(id => {
+                const pend = cs.pendingExams.find(p => p.id === id);
+                const exam = cs.activeCase.availableExams.find(e => e.id === id);
+                if (pend) {
+                    const total = Math.max(1, pend.start - pend.readyAt), left = Math.max(0, cs.timeRemaining - pend.readyAt);
+                    return `<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-dashed border-sky-300 dark:border-sky-700 space-y-2">
+                        <div class="flex items-center justify-between text-xs"><span class="font-bold text-slate-700 dark:text-slate-200"><i class="fa-solid fa-hourglass-half mr-1.5 text-sky-500"></i>${exam.name}</span><span class="font-mono text-slate-500 dark:text-slate-400">résultat dans ${left} s</span></div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden"><div class="bg-sky-500 h-1.5 rounded-full" style="width:${Math.round((1 - left / total) * 100)}%"></div></div></div>`;
+                }
+                let res = cs.activeCase.examResults[id];
                 if (!res) return '';
+                if (cs.activeCase.acls && id === 'ecg_post' && cs.acls && !cs.acls.rosc)
+                    res = { type: 'text_view', title: res.title, text: "Tracé inexploitable pendant le massage cardiaque : à réaliser après le retour d'une activité circulatoire." };
                 if (res.type === 'ecg_view') return `
                     <div class="bg-slate-900 text-white p-4 rounded-xl border border-slate-800 space-y-3">
                         <div class="flex items-center justify-between">
@@ -3636,6 +4549,7 @@
             return `<button onclick="administerAction('${a.id}')" ${done ? 'disabled' : ''} class="p-3 text-left rounded-lg border ${tone} transition text-xs font-semibold flex items-center justify-between gap-2"><span>${a.name}</span>${icon}</button>`;
         }
         function renderTreatmentsTab() {
+            if (currentState.activeCase.acls) return;
             const a = currentState.activeCase.actions;
             document.getElementById('emergency-gestures-grid').innerHTML = a.gestures.map(g => actionButton(g, 'hover:border-red-500')).join('');
             document.getElementById('medications-grid').innerHTML = a.meds.map(m => actionButton(m, 'hover:border-sky-500')).join('');
@@ -3646,12 +4560,13 @@
         }
         function renderTreatmentLog() {
             const log = document.getElementById('treatment-log');
+            if (!log) return;
             if (!currentState.log.length) { log.innerHTML = '<span class="text-slate-400 italic">Aucun traitement administré.</span>'; return; }
             log.innerHTML = currentState.log.map(l => `<div class="${l.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}">[${l.t}] ${l.ok ? 'Action validée' : 'Geste inadapté'} : <strong>${l.name}</strong></div>`).join('');
         }
         function administerAction(id) {
             const cs = currentState;
-            if (cs.administeredActions.includes(id)) return;
+            if (cs.dying || cs.administeredActions.includes(id)) return;
             const all = [...cs.activeCase.actions.gestures, ...cs.activeCase.actions.meds];
             const act = all.find(a => a.id === id);
             if (!act) return;
@@ -3659,6 +4574,8 @@
             cs.log.push({ t: elapsedStr(), name: act.name, ok: act.correct });
             if (act.correct) {
                 if (act.fx && Object.keys(act.fx).length) applyFx(act.fx);
+                const rule = RHYTHM_RULES[cs.activeCase.id];
+                if (rule && rule.on && rule.on[id]) Monitor.setRhythm(rule.on[id]);
             } else {
                 cs.harmful.push(act);
                 applyFx(act.fx || { hr: 6, spo2: -2 });
@@ -3692,12 +4609,15 @@
             const keyExams = c.availableExams.filter(e => e.isKey);
             const missingExams = keyExams.filter(e => !cs.prescribedExams.includes(e.id));
             const useless = c.availableExams.filter(e => !e.isKey && cs.prescribedExams.includes(e.id));
-            const missingActs = keyActions().filter(a => !cs.administeredActions.includes(a.id));
+            const acl = c.acls ? aclsEvaluate() : null;
+            if (acl) cs.harmful = acl.harmful;
+            const missingActs = acl ? acl.missing : keyActions().filter(a => !cs.administeredActions.includes(a.id));
+            const unread = (cs.pendingExams || []).map(p => c.availableExams.find(e => e.id === p.id).name);
 
             let score = 100;
             if (!diagOk) score -= 40;
             if (!orientOk) score -= 20;
-            score -= missingExams.length * 8 + missingActs.length * 8 + cs.harmful.length * 15 + useless.length * 3;
+            score -= missingExams.length * 8 + missingActs.length * 8 + cs.harmful.length * 15 + useless.length * 3 + (acl ? acl.extra : 0);
             if (cs.hintUsed) score -= 5;
             if (isTimeout) score = Math.max(10, score - 30);
             score = Math.max(0, Math.min(100, score));
@@ -3705,7 +4625,7 @@
             const done = cs.prescribedExams.length + cs.administeredActions.length;
             const good = cs.prescribedExams.filter(id => keyExams.some(e => e.id === id)).length +
                          cs.administeredActions.filter(id => [...c.actions.gestures, ...c.actions.meds].some(a => a.id === id && a.correct)).length;
-            const pertinence = done ? Math.round(good / done * 100) : 0;
+            const pertinence = acl ? acl.pertinence : (done ? Math.round(good / done * 100) : 0);
 
             cs.score += score * 5;
             const record = cs.best[c.id] == null || score > cs.best[c.id];
@@ -3715,9 +4635,9 @@
                 dx: diagOk ? 100 : 0,
                 orient: orientOk ? 100 : 0,
                 exam: clamp(keyExams.length ? 100 * (keyExams.length - missingExams.length) / keyExams.length - 10 * useless.length : 100),
-                ttt: clamp(keyActions().length ? 100 * (keyActions().length - missingActs.length) / keyActions().length : 100),
+                ttt: acl ? clamp(100 * (acl.total - acl.missing.length) / acl.total) : clamp(keyActions().length ? 100 * (keyActions().length - missingActs.length) / keyActions().length : 100),
                 safe: clamp(100 - 35 * cs.harmful.length),
-                speed: isTimeout ? 0 : clamp(cs.timeRemaining / c.timerSeconds * 200)
+                speed: acl ? (cs.acls.rosc ? clamp(100 - Math.max(0, cs.acls.roscAt - 360) / 6) : 0) : (isTimeout ? 0 : clamp(cs.timeRemaining / c.timerSeconds * 200))
             };
             const prev = cs.records[c.id];
             cs.records[c.id] = (!prev || score >= prev.score)
@@ -3726,11 +4646,12 @@
             cs.stats.plays += 1;
             cs.stats.timeSum += Math.max(0, c.timerSeconds - cs.timeRemaining);
             cs.stats.harm += cs.harmful.length;
+            if (isTimeout) cs.stats.deaths += 1;
             saveProgress();
             updateUserScoreDisplay();
             renderCasesGrid();
 
-            renderDebriefing({ score, pertinence, isTimeout, diagOk, orientOk, c, chosenOrient, missingExams, missingActs, useless, record });
+            renderDebriefing({ score, pertinence, isTimeout, diagOk, orientOk, c, chosenOrient, missingExams, missingActs, useless, record, unread, aclsInfo: acl ? aclsDebriefInfo() : '' });
             showScreen('debrief');
         }
 
@@ -3749,8 +4670,13 @@
                 subtitle.innerText = 'Certains examens ou traitements essentiels manquent à l\'appel.';
             } else {
                 banner.className = 'bg-gradient-to-r from-red-600 to-rose-700 text-white' + base;
-                title.innerText = r.isTimeout ? 'Temps Écoulé' : 'Échec de la Simulation';
-                subtitle.innerText = r.isTimeout ? 'Le patient s\'est dégradé avant la fin de la prise en charge.' : 'Erreur diagnostique majeure ou retard de prise en charge critique.';
+                title.innerText = 'Échec de la Simulation';
+                subtitle.innerText = 'Erreur diagnostique majeure ou retard de prise en charge critique.';
+            }
+            if (r.isTimeout) {
+                banner.className = 'bg-gradient-to-r from-slate-800 to-red-900 text-white' + base;
+                title.innerText = 'Décès du patient';
+                subtitle.innerText = DEATH_TEXT[currentState.deathCause] || DEATH_TEXT.collapse;
             }
             document.getElementById('debrief-score').innerText = `${r.score} / 100`;
             const taken = Math.max(0, r.c.timerSeconds - currentState.timeRemaining);
@@ -3758,6 +4684,8 @@
             document.getElementById('debrief-pertinence').innerText = `${r.pertinence}%`;
 
             const recap = [];
+            if (r.isTimeout) recap.push({ status: 'danger', text: `Décès du patient (${currentState.deathTime}). ${currentState.deathCause === 'timeout' ? 'Priorisez les examens et traitements clés pour gagner du temps.' : "Un geste dangereux ou un retard de traitement a précipité l'aggravation."}` });
+            if (r.aclsInfo) recap.push({ status: 'info', text: r.aclsInfo });
             if (r.record) recap.push({ status: 'success', text: 'Nouveau meilleur score pour ce cas.' });
             if (currentState.hintUsed) recap.push({ status: 'warning', text: 'Indice utilisé (−5 pts).' });
             recap.push(r.diagOk
@@ -3769,6 +4697,7 @@
             currentState.harmful.forEach(h => recap.push({ status: 'danger', text: `${h.name} : ${h.why}` }));
             r.missingActs.forEach(a => recap.push({ status: 'warning', text: `Geste ou traitement essentiel non réalisé : ${a.name}.` }));
             r.missingExams.forEach(e => recap.push({ status: 'warning', text: `Examen clé non prescrit : ${e.name}.` }));
+            r.unread.forEach(n => recap.push({ status: 'info', text: `Examen prescrit mais résultat non attendu : ${n}.` }));
             r.useless.forEach(e => recap.push({ status: 'warning', text: `Examen peu utile ou chronophage : ${e.name}.` }));
 
             const icons = {
@@ -3791,7 +4720,7 @@
             ['Cardio-vasc.', ['Cardiologie', 'Vasculaire']], ['Respiratoire', ['Pneumologie']], ['Neuro & sens', ['Neurologie', 'ORL-Ophtalmo']],
             ['Infectio-immuno', ['Infectiologie', 'Allergologie']], ['Métabo & rein', ['Endocrinologie', 'Néphro-Urologie', 'Hématologie']],
             ['Digestif', ['Gastro-hépatologie']], ['Tox & psy', ['Toxicologie', 'Psychiatrie']], ['Trauma & env.', ['Traumatologie', 'Environnement']],
-            ['Mère & enfant', ['Obstétrique', 'Pédiatrie']]
+            ['Mère & enfant', ['Obstétrique', 'Pédiatrie']], ['Méd. générale', ['Médecine générale']], ['Réa & ACR', ['Réanimation']]
         ];
         const BADGES = [
             ['fa-stethoscope', 'Premier patient', 'Terminer un premier cas', (r, s) => s.plays >= 1],
@@ -3799,7 +4728,7 @@
             ['fa-bullseye', 'Sans faute', 'Obtenir 100/100 sur un cas', (r) => r.some(x => x.score === 100)],
             ['fa-hand-holding-medical', 'Main sûre', '10 cas sans geste dangereux', (r) => r.filter(x => x.m.safe === 100).length >= 10],
             ['fa-bolt', 'Éclair', 'Réussir un cas avec plus de 45 % du temps restant', (r) => r.some(x => x.score >= 90 && x.m.speed >= 90)],
-            ['fa-sitemap', 'Polyvalent', 'Jouer dans les 9 domaines', (r) => DOMAINS.every(d => r.some(x => d[1].includes(x.cat)))],
+            ['fa-sitemap', 'Polyvalent', `Jouer dans les ${DOMAINS.length} domaines`, (r) => DOMAINS.every(d => r.some(x => d[1].includes(x.cat)))],
             ['fa-medal', 'Praticien confirmé', 'Score moyen ≥ 85 sur 20 cas', (r) => r.length >= 20 && r.reduce((a, x) => a + x.score, 0) / r.length >= 85],
             ['fa-crown', 'Tour de garde complet', 'Explorer tous les cas', (r) => r.length >= CLINICAL_CASES.length]
         ];
@@ -3867,6 +4796,8 @@
                 card('fa-trophy', 'Meilleur score', scores.length ? Math.max(...scores) + ' / 100' : '—'),
                 card('fa-clock', 'Temps moyen', st.plays ? `${Math.floor(st.timeSum / st.plays / 60)}m ${Math.round(st.timeSum / st.plays) % 60}s` : '—'),
                 card('fa-triangle-exclamation', 'Gestes dangereux', st.harm),
+                card('fa-skull', 'Patients décédés', st.deaths || 0),
+                card('fa-heart-pulse', 'Taux de survie', st.plays ? Math.round((st.plays - (st.deaths || 0)) / st.plays * 100) + ' %' : '—'),
                 card('fa-award', 'Badges', `${BADGES.filter(b => b[3](recs, st)).length} / ${BADGES.length}`)
             ].join('');
 
@@ -3895,9 +4826,255 @@
         }
         function resetProgress() {
             if (!confirm('Effacer toute la progression (score, graphiques, badges) ? Cette action est définitive.')) return;
-            Object.assign(currentState, { score: 1250, best: {}, name: '', records: {}, stats: { plays: 0, timeSum: 0, harm: 0 } });
+            Object.assign(currentState, { score: 1250, best: {}, name: '', records: {}, stats: { plays: 0, timeSum: 0, harm: 0, deaths: 0 } });
             try { localStorage.removeItem('medcase_progress'); } catch (e) {}
             updateUserScoreDisplay(); renderCasesGrid(); renderProfile();
+        }
+
+        /* ==========================================================================
+           MODE ARRÊT CARDIAQUE (algorithme ERC) : cycles de 2 min, analyse du rythme,
+           choc (énergie), adrénaline, amiodarone, voies aériennes, causes réversibles 4H/4T.
+           Temps accéléré : 1 seconde réelle = 4 secondes simulées.
+           ========================================================================== */
+        const ACLS_SPEED = 4;
+        const ACLS_CAUSES = [
+            ['hypoxie', 'Hypoxie', 'Ventilation + O2 100 %, voies aériennes sécurisées', false],
+            ['hypovolemie', 'Hypovolémie', 'Remplissage et transfusion massive, contrôle de l\'hémorragie', true],
+            ['metabolique', 'Hypo/hyperkaliémie, métabolique', 'Calcium IV + insuline-glucose', true],
+            ['hypothermie', 'Hypothermie', 'Réchauffement actif (ECMO), 3 chocs maximum', false],
+            ['tamponnade', 'Tamponnade', 'Péricardiocentèse échoguidée', false],
+            ['pneumothorax', 'Pneumothorax compressif', 'Exsufflation à l\'aiguille puis drainage', false],
+            ['thrombose_pulm', 'Thrombose pulmonaire (EP)', 'Thrombolyse IV pendant la RCP', true],
+            ['thrombose_coro', 'Thrombose coronaire', 'Angioplastie après le retour de pouls', false],
+            ['toxiques', 'Toxiques', 'Antidote spécifique, décontamination', true]
+        ];
+        const aclsCauseName = (id) => (ACLS_CAUSES.find(c => c[0] === id) || [, id])[1];
+        const aclsFmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+
+        function aclsInit(c) {
+            const a = c.acls;
+            currentState.acls = {
+                rhythm: a.rhythm, kind: a.kind || (a.rhythm === 'pea' ? 'wide' : 'sinus'),
+                cpr: false, analyzing: false, charging: false, rosc: false, roscAt: null,
+                shocks: 0, shocksOk: 0, lowEnergy: 0, wasteShocks: 0, harmShocks: 0, firstShock: null,
+                adr: 0, amio: 0, earlyAdr: 0, tooOften: 0, wrongAdr: 0, lastAdr: null,
+                access: false, airway: false, echoDone: false, treated: [], wrong: 0,
+                cprSec: 0, noFlow: 0, sim: 0, cycleLeft: 120, energy: 200, log: [],
+                msg: 'Arrêt cardiaque : démarrez le massage cardiaque, posez les accès et analysez le rythme.'
+            };
+            Monitor.setRhythm(a.rhythm);
+        }
+        const aclsOk = () => { const cs = currentState; return cs.acls && cs.activeCase && cs.activeCase.acls && !cs.dying; };
+        function aclsLog(text) { const A = currentState.acls; A.log.unshift({ t: aclsFmt(A.sim), text }); if (A.log.length > 40) A.log.pop(); }
+
+        function aclsReady() {
+            const a = currentState.activeCase.acls, A = currentState.acls, n = a.needs || {};
+            return A.shocksOk >= (n.shocks || 0) && A.adr >= (n.adr || 0) && A.amio >= (n.amio || 0) && A.cprSec >= (n.cprSec || 0) &&
+                (!n.cause || A.treated.includes(a.cause)) && (!n.airway || A.airway);
+        }
+        function aclsRosc(reason) {
+            const cs = currentState, A = cs.acls, a = cs.activeCase.acls;
+            A.rosc = true; A.roscAt = A.sim; A.cpr = false; A.analyzing = false; A.charging = false;
+            Sound.stopMetro();
+            Object.assign(cs.vitals, a.post);
+            renderVitals(['hr', 'bp', 'spo2']);
+            Monitor.setRhythm(a.postRhythm || 'sinus');
+            A.msg = `RETOUR D'UNE ACTIVITÉ CIRCULATOIRE SPONTANÉE (${reason}). Post-RACS : ECG 12 dérivations, SpO2 94-98 %, PAM ≥ 65 mmHg, glycémie, contrôle de la température. Puis diagnostic et orientation (onglet 4).`;
+            aclsLog('RACS obtenu : ' + reason);
+            Sound.ping(); toast('RACS : pouls central retrouvé', 'success');
+            renderAclsPanel();
+        }
+
+        function aclsToggleCpr() {
+            if (!aclsOk()) return; const A = currentState.acls;
+            if (A.rosc || A.analyzing || A.charging) return;
+            A.cpr = !A.cpr;
+            if (A.cpr) { Sound.startMetro(); A.msg = 'Massage en cours : 100 à 120/min, 5 à 6 cm, relève complète du thorax.'; aclsLog('Massage cardiaque démarré'); }
+            else { Sound.stopMetro(); A.msg = 'Massage interrompu : chaque seconde sans massage réduit les chances de survie.'; aclsLog('Massage interrompu'); }
+            renderAclsPanel();
+        }
+        function aclsAnalyze() {
+            if (!aclsOk()) return; const A = currentState.acls, a = currentState.activeCase.acls;
+            if (A.rosc || A.analyzing || A.charging) return;
+            A.cpr = false; Sound.stopMetro(); A.analyzing = true;
+            A.msg = 'Analyse du rythme et recherche du pouls : ne touchez plus le patient…';
+            renderAclsPanel();
+            setTimeout(() => {
+                if (currentState.acls !== A || currentState.dying) return;
+                A.analyzing = false; A.cycleLeft = 120;
+                const shockable = a.rhythm === 'vf';
+                if (!shockable && aclsReady()) return aclsRosc('pouls central perçu à l\'analyse');
+                A.msg = shockable ? 'Fibrillation ventriculaire : CHOC INDIQUÉ. Choisissez l\'énergie, chargez et délivrez.'
+                    : a.rhythm === 'pea' ? 'Rythme organisé mais pas de pouls : AESP. Pas de choc, reprenez le massage et cherchez la cause.'
+                    : 'Asystolie : pas de choc. Reprenez le massage et cherchez la cause.';
+                aclsLog('Analyse : ' + (shockable ? 'FV (choquable)' : a.rhythm === 'pea' ? 'AESP (non choquable)' : 'asystolie (non choquable)'));
+                renderAclsPanel();
+            }, 2500);
+        }
+        function aclsShock() {
+            if (!aclsOk()) return; const A = currentState.acls, a = currentState.activeCase.acls;
+            if (A.rosc || A.analyzing || A.charging) return;
+            A.cpr = false; Sound.stopMetro(); A.charging = true; Sound.charge();
+            A.msg = `Défibrillateur en charge (${A.energy} J)… Écartez-vous.`;
+            renderAclsPanel();
+            setTimeout(() => {
+                if (currentState.acls !== A || currentState.dying) return;
+                A.charging = false; Sound.shock(); Monitor.flash(); A.shocks++;
+                const shockable = a.rhythm === 'vf';
+                if (shockable && A.firstShock === null) A.firstShock = A.sim;
+                if (!shockable) {
+                    A.harmShocks++; A.msg = 'Choc délivré sur un rythme NON choquable : inutile et dangereux.';
+                    aclsLog(`Choc ${A.energy} J sur rythme non choquable`);
+                } else if (a.maxShocksNoCause && A.shocks > a.maxShocksNoCause && !A.treated.includes(a.cause)) {
+                    A.wasteShocks++; A.msg = 'Chocs répétés inefficaces en hypothermie sévère : réchauffez d\'abord le patient (3 chocs maximum).';
+                    aclsLog(`Choc ${A.energy} J sans effet (hypothermie)`);
+                } else if (A.energy < 150) {
+                    A.lowEnergy++; A.msg = 'Énergie insuffisante : choc sans effet. Utilisez 150 à 200 J (biphasique).';
+                    aclsLog(`Choc ${A.energy} J : énergie insuffisante`);
+                } else {
+                    A.shocksOk++; aclsLog(`Choc ${A.energy} J n°${A.shocksOk}`);
+                    if (aclsReady()) return aclsRosc('choc efficace');
+                    A.msg = 'Choc délivré : fibrillation persistante. Reprenez le massage immédiatement.';
+                }
+                A.cpr = true; Sound.startMetro(); A.cycleLeft = 120;
+                renderAclsPanel();
+            }, 1100);
+        }
+        function aclsAccess() {
+            if (!aclsOk()) return; const A = currentState.acls; if (A.rosc || A.access) return;
+            A.access = true; A.msg = 'Accès intra-osseux / veineux posé : les médicaments sont possibles.'; aclsLog('Accès vasculaire posé'); renderAclsPanel();
+        }
+        function aclsAirway() {
+            if (!aclsOk()) return; const A = currentState.acls; if (A.rosc || A.airway) return;
+            A.airway = true; A.msg = 'Voies aériennes sécurisées (intubation ou masque laryngé) : ventilation en O2 100 %.'; aclsLog('Voies aériennes sécurisées'); renderAclsPanel();
+        }
+        function aclsAdr() {
+            if (!aclsOk()) return; const A = currentState.acls, a = currentState.activeCase.acls;
+            if (A.rosc) return;
+            if (!A.access) { toast('Posez d\'abord un accès IV ou intra-osseux.', 'warn'); return; }
+            if (a.noAdr) { A.wrongAdr++; A.msg = 'Adrénaline en hypothermie sévère (< 30 °C) : sans effet utile et risque d\'arythmies. À éviter.'; aclsLog('Adrénaline en hypothermie (à éviter)'); renderAclsPanel(); return; }
+            if (A.lastAdr !== null && A.sim - A.lastAdr < 180) A.tooOften++;
+            if (a.rhythm === 'vf' && A.shocksOk < 3) A.earlyAdr++;
+            A.adr++; A.lastAdr = A.sim;
+            A.msg = `Adrénaline 1 mg IV/IO administrée (dose n°${A.adr}). Prochaine dose dans 3 à 5 minutes.`;
+            aclsLog(`Adrénaline 1 mg (n°${A.adr})`); renderAclsPanel();
+        }
+        function aclsAmio() {
+            if (!aclsOk()) return; const A = currentState.acls; if (A.rosc) return;
+            if (!A.access) { toast('Posez d\'abord un accès IV ou intra-osseux.', 'warn'); return; }
+            A.amio++; A.msg = A.amio === 1 ? 'Amiodarone 300 mg IV administrée.' : 'Amiodarone 150 mg IV administrée.';
+            aclsLog(A.amio === 1 ? 'Amiodarone 300 mg' : 'Amiodarone 150 mg'); renderAclsPanel();
+        }
+        function aclsEcho() {
+            if (!aclsOk()) return; const A = currentState.acls, a = currentState.activeCase.acls;
+            if (A.rosc || A.analyzing || A.charging) return;
+            A.cpr = false; Sound.stopMetro(); A.analyzing = true;
+            A.msg = 'Échographie pendant la pause du massage (10 s maximum)…'; renderAclsPanel();
+            setTimeout(() => {
+                if (currentState.acls !== A || currentState.dying) return;
+                A.analyzing = false; A.echoDone = true;
+                A.msg = 'Échographie : ' + a.echo; aclsLog('Échographie : ' + a.echo); renderAclsPanel();
+            }, 3000);
+        }
+        function aclsTreat(id) {
+            if (!aclsOk()) return; const A = currentState.acls, a = currentState.activeCase.acls;
+            if (A.rosc || A.treated.includes(id)) return;
+            const cause = ACLS_CAUSES.find(c => c[0] === id);
+            if (cause[3] && !A.access) { toast('Posez d\'abord un accès IV ou intra-osseux.', 'warn'); return; }
+            if (id === a.cause) {
+                A.treated.push(id); if (id === 'hypoxie') A.airway = true;
+                A.msg = `Cause traitée : ${cause[1]} (${cause[2]}). Poursuivez le massage et réévaluez au prochain cycle.`;
+                aclsLog(`Cause traitée : ${cause[1]}`);
+            } else {
+                A.wrong++; A.msg = `Aucun effet : « ${cause[1]} » n'est pas la cause retrouvée ici. Cherchez des indices (anamnèse, examen, échographie).`;
+                aclsLog(`Traitement sans effet : ${cause[1]}`);
+            }
+            renderAclsPanel();
+        }
+
+        function aclsTick() {
+            const A = currentState.acls;
+            if (!A || A.rosc || currentState.dying) return;
+            A.sim += ACLS_SPEED;
+            if (A.cpr) A.cprSec += ACLS_SPEED; else A.noFlow += ACLS_SPEED;
+            A.cycleLeft = Math.max(0, A.cycleLeft - ACLS_SPEED);
+            aclsLive();
+        }
+        function aclsNoFlowPct() { const A = currentState.acls; return Math.round(100 * A.noFlow / Math.max(1, A.noFlow + A.cprSec)); }
+        function aclsLive() {
+            const A = currentState.acls; if (!A) return;
+            const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+            set('acls-sim', aclsFmt(A.sim)); set('acls-cycle', A.rosc ? '—' : aclsFmt(A.cycleLeft));
+            set('acls-nf', aclsNoFlowPct() + ' %'); set('acls-shocks', A.shocksOk + (A.shocks - A.shocksOk > 0 ? ` (+${A.shocks - A.shocksOk})` : ''));
+            set('acls-adr', A.lastAdr === null ? '—' : `${A.adr} · il y a ${aclsFmt(A.sim - A.lastAdr)}`);
+            set('acls-msg', A.msg);
+            const cy = document.getElementById('acls-cycle');
+            if (cy) cy.className = 'text-2xl font-extrabold ' + (!A.rosc && A.cycleLeft === 0 ? 'text-red-500 animate-pulse' : 'text-slate-900 dark:text-white');
+        }
+        function aclsSetEnergy(v) { currentState.acls.energy = parseInt(v, 10); }
+
+        function renderAclsPanel() {
+            const cs = currentState, A = cs.acls, root = document.getElementById('tab-content-treatments');
+            if (!A || !root) return;
+            const off = A.rosc || A.analyzing || A.charging || cs.dying;
+            const btn = (onclick, icon, label, tone, disabled, sub = '') => `<button onclick="${onclick}" ${disabled ? 'disabled' : ''} class="p-3 text-left rounded-lg border ${disabled ? 'opacity-40 cursor-default ' : ''}${tone} transition flex items-center gap-3">
+                <i class="fa-solid ${icon} text-lg w-6 text-center"></i><span class="text-xs font-semibold">${label}${sub ? `<span class="block font-normal text-[10px] opacity-80">${sub}</span>` : ''}</span></button>`;
+            const base = 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:border-sky-500';
+            const done = 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 text-emerald-700 dark:text-emerald-300';
+            const red = 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 hover:border-red-500';
+            const stat = (label, id, val) => `<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3"><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">${label}</div><div id="${id}" class="text-2xl font-extrabold text-slate-900 dark:text-white">${val}</div></div>`;
+            root.innerHTML = `<div class="space-y-4">
+                <div class="flex items-center justify-between flex-wrap gap-2"><h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-red-500"></i> Réanimation cardio-pulmonaire (algorithme ERC)</h3>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">Temps accéléré ×${ACLS_SPEED} : 1 s réelle = ${ACLS_SPEED} s simulées</span></div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">${stat('Temps simulé', 'acls-sim', '0:00')}${stat('Cycle de 2 min', 'acls-cycle', '2:00')}${stat('Chocs efficaces', 'acls-shocks', '0')}${stat('Adrénaline', 'acls-adr', '—')}${stat('Sans massage', 'acls-nf', '0 %')}</div>
+                <div id="acls-msg" class="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-100 p-3 text-sm font-semibold">${A.msg}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    ${btn('aclsToggleCpr()', A.cpr ? 'fa-hand-fist' : 'fa-hands', A.cpr ? 'Massage en cours : arrêter' : 'Démarrer le massage cardiaque', A.cpr ? done : red, A.rosc || A.analyzing || A.charging, '100-120/min · 5-6 cm')}
+                    ${btn('aclsAnalyze()', 'fa-wave-square', 'Analyser le rythme / pouls', base, off, 'Pause ≤ 10 s')}
+                    <div class="p-3 rounded-lg border ${A.charging ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'} flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-lg w-6 text-center text-amber-500"></i>
+                        <select onchange="aclsSetEnergy(this.value)" ${off ? 'disabled' : ''} aria-label="Énergie du choc" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                            ${[100, 150, 200, 360].map(j => `<option value="${j}" ${A.energy === j ? 'selected' : ''}>${j} J</option>`).join('')}</select>
+                        <button onclick="aclsShock()" ${off ? 'disabled' : ''} class="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs py-2 rounded-lg ${off ? 'opacity-40' : ''}">Choc</button></div>
+                    ${btn('aclsAccess()', 'fa-syringe', 'Accès IV / intra-osseux', A.access ? done : base, A.rosc || A.access)}
+                    ${btn('aclsAirway()', 'fa-lungs', 'Voies aériennes (IOT / masque laryngé)', A.airway ? done : base, A.rosc || A.airway, 'O2 100 %')}
+                    ${btn('aclsAdr()', 'fa-prescription-bottle-medical', 'Adrénaline 1 mg IV/IO', base, A.rosc, 'Toutes les 3-5 min')}
+                    ${btn('aclsAmio()', 'fa-prescription-bottle', 'Amiodarone 300 mg puis 150 mg', base, A.rosc, 'FV réfractaire (après le 3e choc)')}
+                    ${btn('aclsEcho()', 'fa-stethoscope', 'Échographie pendant la pause', A.echoDone ? done : base, off, 'Cherche une cause réversible')}
+                </div>
+                <div><h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Causes réversibles (4H / 4T)</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${ACLS_CAUSES.map(([id, name, tt]) => btn(`aclsTreat('${id}')`, A.treated.includes(id) ? 'fa-circle-check' : 'fa-magnifying-glass-plus', name, A.treated.includes(id) ? done : base, A.rosc || A.treated.includes(id), tt)).join('')}</div></div>
+                <div><h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Journal de réanimation</h4>
+                    <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono space-y-1 min-h-[60px]">
+                    ${A.log.length ? A.log.slice(0, 10).map(l => `<div class="text-slate-700 dark:text-slate-300">[${l.t}] ${l.text}</div>`).join('') : '<span class="text-slate-400 italic">Aucune action.</span>'}</div></div></div>`;
+            aclsLive();
+        }
+
+        /* ---------- Évaluation de la prise en charge (injectée dans le score et le débriefing) ---------- */
+        function aclsEvaluate() {
+            const cs = currentState, c = cs.activeCase, a = c.acls, A = cs.acls, n = a.needs || {};
+            const missing = [], harmful = []; let total = 0;
+            const need = (ok, name) => { total++; if (!ok) missing.push({ name }); };
+            const nf = A.noFlow / Math.max(1, A.noFlow + A.cprSec);
+            need(nf <= 0.3, `Massage cardiaque quasi continu (temps sans massage : ${Math.round(nf * 100)} %, objectif < 30 %)`);
+            need(A.access, 'Accès vasculaire (IV ou intra-osseux) établi');
+            need(A.airway, 'Voies aériennes sécurisées (intubation ou masque laryngé)');
+            if (a.rhythm === 'vf') need(A.firstShock !== null && A.firstShock <= 180, `Premier choc dans les 3 minutes (${A.firstShock === null ? 'aucun choc délivré' : 'délivré à ' + aclsFmt(A.firstShock)})`);
+            if (!a.noAdr) need(A.adr >= 1, 'Adrénaline 1 mg administrée');
+            if (n.amio) need(A.amio >= 1, 'Amiodarone 300 mg après le 3e choc (FV réfractaire)');
+            if (n.cause) need(A.treated.includes(a.cause), `Cause réversible traitée : ${aclsCauseName(a.cause)}`);
+            if (A.lowEnergy) need(false, 'Énergie de choc suffisante (150 à 200 J en biphasique)');
+            if (A.earlyAdr) need(false, 'Adrénaline après le 3e choc dans une FV (ERC 2021)');
+            if (A.wrong >= 3) need(false, 'Recherche ciblée de la cause (plusieurs traitements sans effet)');
+            for (let i = 0; i < A.harmShocks; i++) harmful.push({ name: 'Choc sur rythme non choquable', why: 'Asystolie et AESP ne se choquent pas : reprendre le massage et chercher la cause.' });
+            for (let i = 0; i < A.wasteShocks; i++) harmful.push({ name: 'Choc répété en hypothermie sévère', why: 'Au-delà de 3 chocs, réchauffer d\'abord : le myocarde froid ne répond pas.' });
+            for (let i = 0; i < A.wrongAdr; i++) harmful.push({ name: 'Adrénaline en hypothermie sévère', why: 'À éviter sous 30 °C : sans bénéfice et risque d\'arythmies.' });
+            for (let i = 0; i < A.tooOften; i++) harmful.push({ name: 'Adrénaline trop rapprochée (< 3 minutes)', why: 'Intervalle recommandé : 3 à 5 minutes.' });
+            return { missing, harmful, total, extra: A.rosc ? 0 : 25, pertinence: Math.round(100 * (total - missing.length) / total) };
+        }
+        function aclsDebriefInfo() {
+            const A = currentState.acls;
+            return `Réanimation : ${A.rosc ? 'RACS obtenu à ' + aclsFmt(A.roscAt) + ' (temps simulé)' : 'pas de RACS'} · temps sans massage ${aclsNoFlowPct()} % · chocs efficaces ${A.shocksOk} · adrénaline ${A.adr} dose(s).`;
         }
 
         function abandonCase() {

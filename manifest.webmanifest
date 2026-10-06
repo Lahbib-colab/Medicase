@@ -1,7 +1,7 @@
 {
   "name": "MedCase Urgences",
   "short_name": "MedCase",
-  "description": "Simulateur clinique d'urgence : 99 cas cliniques à prendre en charge contre la montre.",
+  "description": "Simulateur clinique d'urgence : 129 cas cliniques à prendre en charge contre la montre.",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",

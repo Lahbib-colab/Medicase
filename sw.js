@@ -3,7 +3,7 @@
    - Navigation : réseau d'abord, repli sur le cache
    - Autres ressources (CSS, polices, Font Awesome) : cache d'abord + mise à jour en arrière-plan
    Incrémentez VERSION à chaque déploiement pour renouveler le cache. */
-const VERSION = 'medcase-v3';
+const VERSION = 'medcase-v6';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'
